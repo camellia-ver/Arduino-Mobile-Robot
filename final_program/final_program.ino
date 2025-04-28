@@ -268,7 +268,7 @@ void navigateToRFIDGoal(String rfidUID) {
   int goalY = goal.second;
 
   // 2. 현재 위치 (로봇 시작 위치) 정의
-  Node start(robotStartX, robotStartY, 0, heuristic(robotStartX, robotStartY, goalX, goalY), 0, -1, -1);
+  Node start(ROBOT_START_X, ROBOT_START_Y, 0, heuristic(ROBOT_START_X, ROBOT_START_Y, goalX, goalY), 0, -1, -1);
 
   // 3. A* 알고리즘을 이용해 경로 찾기
   Node goalNode(goalX, goalY, 0, 0, 0, -1, -1);

@@ -20,8 +20,8 @@
 
 // ===== 로봇 속도 및 회전 시간 =====
 const int ROBOT_SPEED = 100;  // 로봇 속도
-const int TURN_DELAY_90 = 400;  // 90도 회전 시간
-const int TURN_DELAY_180 = 800; // 180도 회전 시간
+const int TURN_DELAY_90 = 610;  // 90도 회전 시간
+const int TURN_DELAY_180 = 1220; // 180도 회전 시간
 
 bool IsDriving = false;  // 주행 상태 변수
 

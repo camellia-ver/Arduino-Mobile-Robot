@@ -6,23 +6,29 @@
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 
-struct KeyValue {
+struct Point {
+  int x;
+  int y;
+};
+
+struct RfidData {
   const char* key;
-  int value;
+  Point point;
 };
 
-KeyValue keyValueMap[] = {
-  {"14081b74",1},
-  {"640fcf73",2},
+RfidData rfidDataMap[] = { 
+  // {UID, {x, y}}
+  {"14081b74",{1,2}},
+  {"640fcf73",{2,3}},
 };
 
-int findValueByKey(const char* key){
-  for (int i=0;i< sizeof(keyValueMap)/sizeof(keyValueMap[0]);i++){
-    if(strcmp(keyValueMap[i].key,key)==0){
-      return keyValueMap[i].value;
+Point findValueByKey(const char* key){
+  for (int i=0;i< sizeof(rfidDataMap)/sizeof(rfidDataMap[0]);i++){
+    if(strcmp(rfidDataMap[i].key,key)==0){
+      return rfidDataMap[i].point;
     }
   }
-  return -1;
+  return Point{-1, -1};
 }
 
 void setup() {
@@ -37,8 +43,9 @@ void loop() {
   if (rfidUID != "") {
     Serial.print("RFID UID 읽음: ");
     Serial.println(rfidUID);
-    int value = findValueByKey(rfidUID.c_str());
-    Serial.println(value);
+    Point value = findValueByKey(rfidUID.c_str());
+    Serial.println(value.x);
+    Serial.println(value.y);
   }
   delay(100); // 1초 대기
 }

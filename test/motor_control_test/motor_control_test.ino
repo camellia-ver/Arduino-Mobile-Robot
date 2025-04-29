@@ -4,6 +4,9 @@
 #define RIGHT_MOTOR_DIR_PIN 8 // 2번(오른쪽) 모터 방향 제어 핀
 #define RIGHT_MOTOR_PWM_PIN 6 // 2번(오른쪽) 모터 속도 제어 핀
 
+#define FORWARD HIGH
+#define BACKWARD LOW
+
 // ===== 로봇 속도 및 회전 시간 설정 =====
 const int ROBOT_SPEED = 150; // 로봇 속도 (0~255)
 const int TURN_DELAY_90 = 400;  // 90도 회전 시간

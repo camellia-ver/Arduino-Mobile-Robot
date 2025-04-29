@@ -10,8 +10,8 @@
 
 // ===== 로봇 속도 및 회전 시간 설정 =====
 const int ROBOT_SPEED = 100; // 로봇 속도 (0~255)
-const int TURN_DELAY_90 = 400;  // 90도 회전 시간
-const int TURN_DELAY_180 = 800; // 180도 회전 시간
+const int TURN_DELAY_90 = 1500;  // 90도 회전 시간
+const int TURN_DELAY_180 = 3000; // 180도 회전 시간
 
 // 버튼 핀 정의 (주행 시작/정지)
 #define pinButton A3  // 주행 시작/정지 버튼 연결 핀
@@ -25,7 +25,7 @@ void controlMotors(int leftDirection, int leftPower, int rightDirection, int rig
   analogWrite(LEFT_MOTOR_PWM_PIN, leftPower);
 
   // 오른쪽 모터 설정
-  digitalWrite(RIGHT_MOTOR_DIR_PIN, rightDirection);
+  digitalWrite(RIGHT_MOTOR_DIR_PIN, !rightDirection);
   analogWrite(RIGHT_MOTOR_PWM_PIN, rightPower);
 }
 
@@ -104,30 +104,30 @@ void loop() {
   if (IsDriving) {
     Serial.println("Testing motor control...");
 
-    moveRobotForward(ROBOT_SPEED);  // 전진
-    delay(2000);            // 2초 동안 전진
-    stopMotors();           // 정지
-    delay(1000);            // 1초 대기
+    // moveRobotForward(ROBOT_SPEED);  // 전진
+    // delay(2000);            // 2초 동안 전진
+    // stopMotors();           // 정지
+    // delay(1000);            // 1초 대기
 
-    turnLeft90();           // 좌회전
-    delay(2000);            // 2초 대기
-    stopMotors();           // 정지
-    delay(1000);            // 1초 대기
+    // turnLeft90();           // 좌회전
+    // delay(2000);            // 2초 대기
+    // stopMotors();           // 정지
+    // delay(1000);            // 1초 대기
 
-    moveRobotForward(ROBOT_SPEED);  // 전진
-    delay(2000);            // 2초 동안 전진
-    stopMotors();           // 정지
-    delay(1000);            // 1초 대기
+    // moveRobotForward(ROBOT_SPEED);  // 전진
+    // delay(2000);            // 2초 동안 전진
+    // stopMotors();           // 정지
+    // delay(1000);            // 1초 대기
 
-    turnRight90();          // 우회전
-    delay(2000);            // 2초 대기
-    stopMotors();           // 정지
-    delay(1000);            // 1초 대기
+    // turnRight90();          // 우회전
+    // delay(2000);            // 2초 대기
+    // stopMotors();           // 정지
+    // delay(1000);            // 1초 대기
 
-    moveRobotForward(ROBOT_SPEED);  // 전진
-    delay(2000);            // 2초 동안 전진
-    stopMotors();           // 정지
-    delay(1000);            // 1초 대기
+    // moveRobotForward(ROBOT_SPEED);  // 전진
+    // delay(2000);            // 2초 동안 전진
+    // stopMotors();           // 정지
+    // delay(1000);            // 1초 대기
 
     turnAround180();        // 180도 회전
     delay(2000);            // 2초 대기

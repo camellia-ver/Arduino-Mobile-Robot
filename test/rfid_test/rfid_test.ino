@@ -1,19 +1,15 @@
-#include <Wire.h>
-#include <Adafruit_PN532.h>
+#include <SPI.h>
+#include <MFRC522.h>
 
-#define SDA_PIN 2
-#define SCL_PIN 3
-Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
+#define SS_PIN 10  // SDA
+#define RST_PIN 9
+
+MFRC522 rfid(SS_PIN, RST_PIN);
 
 void setup() {
   Serial.begin(115200);
-  nfc.begin();
-  uint32_t versiondata = nfc.getFirmwareVersion();
-  if (!versiondata) {
-    Serial.println("RFID 리더 오류!");
-    while (1);
-  }
-  nfc.SAMConfig();
+  SPI.begin();           // SPI 초기화
+  rfid.PCD_Init();       // RFID 초기화
   Serial.println("RFID 리더 준비 완료!");
 }
 
@@ -27,17 +23,15 @@ void loop() {
 }
 
 String readRFID() {
-  uint8_t success;
-  uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
-  uint8_t uidLength;
-
-  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
-  if (success) {
-    String uidString = "";
-    for (int i = 0; i < uidLength; i++) {
-      uidString += String(uid[i], HEX);
-    }
-    return uidString;
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+    return "";
   }
-  return ""; // RFID 읽기 실패
+
+  String uidString = "";
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) uidString += "0";  // 앞자리가 한 자리일 때 0 추가
+    uidString += String(rfid.uid.uidByte[i], HEX);
+  }
+  rfid.PICC_HaltA();  // 카드 통신 종료
+  return uidString;
 }

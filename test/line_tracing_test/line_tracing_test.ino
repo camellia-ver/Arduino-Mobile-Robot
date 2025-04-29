@@ -11,12 +11,15 @@
 #define pinButton A3  // 주행 시작/정지 버튼 핀
 
 // ===== 라인 센서 핀 및 설정 =====
-#define LINE_SENSOR_LEFT A0
-#define LINE_SENSOR_RIGHT A1
-#define LINE_THRESHOLD 500 // 센서 임계값
+#define LINE_SENSOR_LEFT A6
+#define LINE_SENSOR_RIGHT A7
+#define LT_AJDUST       60             // 젤리비 센서 값 조정 (필요한 경우 이 값을 실험적으로 조정)
+#define LT_MAX_WHITE   410 + LT_AJDUST // 흰색으로 판단하는 최대값
+#define LT_MID_VALUE   560 + LT_AJDUST // 흑백 판단 경계값(중간값)
+#define LT_MIN_BLACK   710 + LT_AJDUST // 검은색으로 판단하는 최소값
 
 // ===== 로봇 속도 및 회전 시간 =====
-const int ROBOT_SPEED = 150;  // 로봇 속도
+const int ROBOT_SPEED = 100;  // 로봇 속도
 const int TURN_DELAY_90 = 400;  // 90도 회전 시간
 const int TURN_DELAY_180 = 800; // 180도 회전 시간
 
@@ -63,31 +66,31 @@ void followLine(int speed) {
   int rightValue = readSensorAverage(LINE_SENSOR_RIGHT);
 
   // 두 센서 모두 라인 위 (검정) → 정지
-  if (leftValue > LINE_THRESHOLD && rightValue > LINE_THRESHOLD) {
+  if ((LT_MIN_BLACK < leftValue) && (LT_MIN_BLACK < rightValue)) {
     Serial.println("모터 정지");
     stopMotors();
   }
-  // 두 센서 모두 라인 아래 (흰색) → 직진
-  else if (leftValue < LINE_THRESHOLD && rightValue < LINE_THRESHOLD) {
-    Serial.println("직진");
-    moveRobotForward(speed);
-  }
   // 왼쪽 센서만 라인 아래 → 좌회전
-  else if (leftValue < LINE_THRESHOLD && rightValue > LINE_THRESHOLD) {
+  else if ( leftValue > LT_MIN_BLACK) {
     Serial.println("좌회전");
     turnRobotLeftInPlace(speed);
   }
   // 오른쪽 센서만 라인 아래 → 우회전
-  else if (rightValue < LINE_THRESHOLD && leftValue > LINE_THRESHOLD) {
+  else if ( rightValue > LT_MIN_BLACK) {
     Serial.println("우회전");
     turnRobotRightInPlace(speed);
+  }
+  // 두 센서 모두 라인 아래 (흰색) → 직진
+  else {
+    Serial.println("직진");
+    moveRobotForward(speed);
   }
 
   delay(5); // 센서 읽기 간격
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   // 모터 핀 출력 설정
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);

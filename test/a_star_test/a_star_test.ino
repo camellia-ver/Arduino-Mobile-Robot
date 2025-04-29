@@ -2,7 +2,9 @@
 
 // 최대 경로 길이
 #define MAX_PATH_LENGTH 100
-#define MAX_QUEUE_SIZE 40  // 줄여도 작동 가능 (20x20 맵 기준)
+#define MAX_QUEUE_SIZE 40  
+
+#define MAX_MAP_SIZE 8
 
 // 구조체 최적화: f 제거 (계산으로 대체), 부모 좌표 제거
 struct Node {
@@ -19,11 +21,11 @@ Node openList[MAX_QUEUE_SIZE];
 int openListSize = 0;
 
 // 상태 관리: 0=미방문, 1=openList, 2=closedList
-uint8_t status[20][20];
+uint8_t status[MAX_MAP_SIZE][MAX_MAP_SIZE];
 
 // 부모 좌표 저장 (역추적용)
-uint8_t parentX[20][20];
-uint8_t parentY[20][20];
+uint8_t parentX[MAX_MAP_SIZE][MAX_MAP_SIZE];
+uint8_t parentY[MAX_MAP_SIZE][MAX_MAP_SIZE];
 
 // 최종 경로 저장
 Node path[MAX_PATH_LENGTH];
@@ -84,7 +86,6 @@ bool findPathAStar(uint8_t sx, uint8_t sy, uint8_t gx, uint8_t gy) {
         cy = py;
       }
       path[pathSize++] = Node(sx, sy, 0, 0);
-      return true;
     }
 
     // 상하좌우 4방향 탐색
@@ -93,18 +94,30 @@ bool findPathAStar(uint8_t sx, uint8_t sy, uint8_t gx, uint8_t gy) {
       uint8_t ny = current.y + dy[dir];
 
       // 경계 체크 및 미방문 노드만 탐색
-      if (nx < 20 && ny < 20 && status[nx][ny] == 0) {
+      if (nx < MAX_MAP_SIZE && ny < MAX_MAP_SIZE && status[nx][ny] == 0) {
         // 장애물이 없다는 가정하에 진행
-        Node neighbor(nx, ny, current.g + 1, heuristic(nx, ny, gx, gy));
-        pushOpenList(neighbor);
-        status[nx][ny] = 1;  // openList에 추가
-        parentX[nx][ny] = current.x;
-        parentY[nx][ny] = current.y;
+        uint8_t newG = current.g + 1;
+        uint8_t newH = heuristic(nx, ny, gx, gy);
+
+        // 중복 노드 체크: 열린 리스트에 같은 노드가 있는지 확인
+        bool existsInOpen = false;
+        for (int i = 0; i < openListSize; i++) {
+          if (openList[i].x == nx && openList[i].y == ny) {
+            existsInOpen = true;
+            break;
+          }
+        }
+
+        if (!existsInOpen) {
+          Node neighbor(nx, ny, newG, newH);
+          pushOpenList(neighbor);
+          status[nx][ny] = 1;  // openList에 추가
+          parentX[nx][ny] = current.x;
+          parentY[nx][ny] = current.y;
+        }
       }
     }
   }
-
-  return false;
 }
 
 void setup() {
@@ -113,7 +126,9 @@ void setup() {
   uint8_t startX = 0, startY = 0;
   uint8_t goalX = 5, goalY = 5;
 
-  if (findPathAStar(startX, startY, goalX, goalY)) {
+  findPathAStar(startX, startY, goalX, goalY);
+
+  if (pathSize > 0) {
     Serial.println("경로 찾기 성공!");
     // 경로 출력 (역추적된 경로)
     for (int i = pathSize - 1; i >= 0; i--) {

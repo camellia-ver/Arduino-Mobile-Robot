@@ -2,18 +2,17 @@
 
 // 최대 경로 길이
 #define MAX_PATH_LENGTH 100
-#define MAX_QUEUE_SIZE 40  
-
+#define MAX_QUEUE_SIZE 40
 #define MAX_MAP_SIZE 8
 
 // 구조체 최적화: f 제거 (계산으로 대체), 부모 좌표 제거
 struct Node {
-  uint8_t x, y;  // 0~19면 uint8_t 가능
-  uint8_t g, h;  // 경로 비용
+  uint8_t x, y;
+  uint8_t g, h;
   Node() : x(0), y(0), g(0), h(0) {}
   Node(uint8_t x, uint8_t y, uint8_t g, uint8_t h)
     : x(x), y(y), g(g), h(h) {}
-  uint8_t f() const { return g + h; }  // f = g + h
+  uint8_t f() const { return g + h; }
 };
 
 // 우선순위 큐 (정렬 유지 삽입 방식)
@@ -49,18 +48,22 @@ void pushOpenList(const Node& node) {
   openListSize++;
 }
 
-// pop (가장 f가 낮은 노드)
-Node popOpenList() {
-  return openList[--openListSize];
+// 중복 노드가 openList에 있는지 확인
+bool openListContains(uint8_t x, uint8_t y) {
+  for (int i = 0; i < openListSize; i++) {
+    if (openList[i].x == x && openList[i].y == y) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // A* 탐색
 bool findPathAStar(uint8_t sx, uint8_t sy, uint8_t gx, uint8_t gy) {
   openListSize = 0;
   pathSize = 0;
-  memset(status, 0, sizeof(status));  // 상태 배열 초기화
+  memset(status, 0, sizeof(status));
 
-  // 시작 노드
   Node start(sx, sy, 0, heuristic(sx, sy, gx, gy));
   pushOpenList(start);
   status[sx][sy] = 1;
@@ -71,12 +74,10 @@ bool findPathAStar(uint8_t sx, uint8_t sy, uint8_t gx, uint8_t gy) {
   int dy[4] = {-1, 0, 1, 0};
 
   while (openListSize > 0) {
-    Node current = popOpenList();
-    status[current.x][current.y] = 2;  // closedList로 이동
+    Node current = openList[--openListSize];
+    status[current.x][current.y] = 2;
 
-    // 목표에 도달한 경우
     if (current.x == gx && current.y == gy) {
-      // 역추적
       uint8_t cx = gx, cy = gy;
       while (!(cx == sx && cy == sy)) {
         path[pathSize++] = Node(cx, cy, 0, 0);
@@ -86,38 +87,29 @@ bool findPathAStar(uint8_t sx, uint8_t sy, uint8_t gx, uint8_t gy) {
         cy = py;
       }
       path[pathSize++] = Node(sx, sy, 0, 0);
+      break;
     }
 
-    // 상하좌우 4방향 탐색
     for (int dir = 0; dir < 4; dir++) {
       uint8_t nx = current.x + dx[dir];
       uint8_t ny = current.y + dy[dir];
 
-      // 경계 체크 및 미방문 노드만 탐색
       if (nx < MAX_MAP_SIZE && ny < MAX_MAP_SIZE && status[nx][ny] == 0) {
-        // 장애물이 없다는 가정하에 진행
         uint8_t newG = current.g + 1;
         uint8_t newH = heuristic(nx, ny, gx, gy);
 
-        // 중복 노드 체크: 열린 리스트에 같은 노드가 있는지 확인
-        bool existsInOpen = false;
-        for (int i = 0; i < openListSize; i++) {
-          if (openList[i].x == nx && openList[i].y == ny) {
-            existsInOpen = true;
-            break;
-          }
-        }
-
-        if (!existsInOpen) {
+        if (!openListContains(nx, ny)) {
           Node neighbor(nx, ny, newG, newH);
           pushOpenList(neighbor);
-          status[nx][ny] = 1;  // openList에 추가
+          status[nx][ny] = 1;
           parentX[nx][ny] = current.x;
           parentY[nx][ny] = current.y;
         }
       }
     }
   }
+
+  return pathSize > 0;
 }
 
 void setup() {
@@ -130,7 +122,6 @@ void setup() {
 
   if (pathSize > 0) {
     Serial.println("경로 찾기 성공!");
-    // 경로 출력 (역추적된 경로)
     for (int i = pathSize - 1; i >= 0; i--) {
       Serial.print(path[i].x);
       Serial.print(", ");

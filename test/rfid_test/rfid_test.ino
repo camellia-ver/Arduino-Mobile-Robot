@@ -43,9 +43,7 @@ void loop() {
   if (rfidUID != "") {
     Serial.print("RFID UID 읽음: ");
     Serial.println(rfidUID);
-    Point value = findValueByKey(rfidUID.c_str());
-    Serial.println(value.x);
-    Serial.println(value.y);
+    Point goalPoint = findValueByKey(rfidUID.c_str());
   }
   delay(100); // 1초 대기
 }

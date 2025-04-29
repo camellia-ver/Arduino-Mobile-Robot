@@ -30,7 +30,7 @@ void controlMotors(int leftDirection, int leftPower, int rightDirection, int rig
 }
 
 void moveRobotForward(int power) {
-  controlMotors(HIGH, power, LOW, power);  // 두 모터 전진
+  controlMotors(HIGH, power, HIGH, power);  // 두 모터 전진
 }
 
 void turnRobotLeftInPlace(int power) {

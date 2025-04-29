@@ -6,6 +6,25 @@
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 
+struct KeyValue {
+  const char* key;
+  int value;
+};
+
+KeyValue keyValueMap[] = {
+  {"14081b74",1},
+  {"640fcf73",2},
+};
+
+int findValueByKey(const char* key){
+  for (int i=0;i< sizeof(keyValueMap)/sizeof(keyValueMap[0]);i++){
+    if(strcmp(keyValueMap[i].key,key)==0){
+      return keyValueMap[i].value;
+    }
+  }
+  return -1;
+}
+
 void setup() {
   Serial.begin(115200);
   SPI.begin();           // SPI 초기화
@@ -18,8 +37,10 @@ void loop() {
   if (rfidUID != "") {
     Serial.print("RFID UID 읽음: ");
     Serial.println(rfidUID);
+    int value = findValueByKey(rfidUID.c_str());
+    Serial.println(value);
   }
-  delay(1000); // 1초 대기
+  delay(100); // 1초 대기
 }
 
 String readRFID() {

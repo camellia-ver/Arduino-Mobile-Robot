@@ -7,7 +7,7 @@
 #define RST_PIN 4
 
 #define pinBuzzer 3
-#define pinServo 6
+#define pinServo 9
 
 #define LEFT_MOTOR_DIR_PIN 7  // 1번(왼쪽) 모터 방향 제어 핀
 #define LEFT_MOTOR_PWM_PIN 5  // 1번(왼쪽) 모터 속도 제어 핀
@@ -29,7 +29,7 @@
 // 경로 최대 길이 (최적화를 위해 제한)
 #define MAX_PATH_LENGTH 32
 
-const int ROBOT_MOVEMENT_SPEED = 160; // 로봇 속도
+const int ROBOT_MOVEMENT_SPEED = 100; // 로봇 속도
 const int TURN_DELAY_90 = 610;  // 90도 회전 시간
 const int TURN_DELAY_180 = 1220; // 180도 회전 시간
 

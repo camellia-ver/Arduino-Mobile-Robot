@@ -15,13 +15,21 @@
 #define RIGHT_MOTOR_DIR_PIN 8 // 2번(오른쪽) 모터 방향 제어 핀
 #define RIGHT_MOTOR_PWM_PIN 6 // 2번(오른쪽) 모터 속도 제어 핀
 
+// ===== 라인 센서 핀 및 설정 =====
+#define LINE_SENSOR_LEFT A6
+#define LINE_SENSOR_RIGHT A7
+#define LT_AJDUST       60             // 젤리비 센서 값 조정 (필요한 경우 이 값을 실험적으로 조정)
+#define LT_MAX_WHITE   410 + LT_AJDUST // 흰색으로 판단하는 최대값
+#define LT_MID_VALUE   560 + LT_AJDUST // 흑백 판단 경계값(중간값)
+#define LT_MIN_BLACK   710 + LT_AJDUST // 검은색으로 판단하는 최소값
+
 // 맵의 크기 정의 (8x8)
 #define GRID_SIZE 8
 
 // 경로 최대 길이 (최적화를 위해 제한)
 #define MAX_PATH_LENGTH 32
 
-const int ROBOT_MOVEMENT_SPEED = 100; // 로봇 속도 (80~120)
+const int ROBOT_MOVEMENT_SPEED = 160; // 로봇 속도
 const int TURN_DELAY_90 = 610;  // 90도 회전 시간
 const int TURN_DELAY_180 = 1220; // 180도 회전 시간
 
@@ -228,8 +236,10 @@ void setup() {
   myservo.attach(pinServo);
   
   pinMode(pinBuzzer, OUTPUT);
+
+  pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
   pinMode(LEFT_MOTOR_PWM_PIN, OUTPUT);
-  pinMode(LEFT_MOTOR_PWM_PIN, OUTPUT);
+
   pinMode(RIGHT_MOTOR_DIR_PIN, OUTPUT);
   pinMode(RIGHT_MOTOR_PWM_PIN, OUTPUT);
   
@@ -238,29 +248,30 @@ void setup() {
 
 // loop 함수
 void loop() {
-  switch (RunState) {
-    case STATE_WAIT_FOR_CARD:
-      waitForRFIDCard();
-      break;
+  executeLineTracing();
+  // switch (RunState) {
+  //   case STATE_WAIT_FOR_CARD:
+  //     waitForRFIDCard();
+  //     break;
       
-    // case STATE_CHECK_CENTER:
-    //   handleCheckCenter();
-    //   break;
+  //   case STATE_CHECK_CENTER:
+  //     handleCheckCenter();
+  //     break;
       
-    // case STATE_CHECK_LEFT_WAIT:
-    //   handleCheckLeftWait();
-    //   break;
+  //   case STATE_CHECK_LEFT_WAIT:
+  //     handleCheckLeftWait();
+  //     break;
       
-    // // 여기에 필요한 상태들을 추가로 처리할 수 있습니다.
+  //   // 여기에 필요한 상태들을 추가로 처리할 수 있습니다.
       
-    // case STATE_DONE:
-    //   handleDone();
-    //   break;
+  //   case STATE_DONE:
+  //     handleDone();
+  //     break;
 
-    // default:
-    //   executeLineTracing();  // 기본 라인 추적 동작
-    //   break;
-  }
+  //   default:
+  //     executeLineTracing();  // 기본 라인 추적 동작
+  //     break;
+  // }
 }
 
 // 카드 감지 대기
@@ -388,10 +399,46 @@ void handleDone() {
   RunState = STATE_DONE;
 }
 
+// ===== 라인 센서 읽기 함수 =====
+int readSensorAverage(int pin) {
+  int total = 0;
+  for (int i = 0; i < 5; i++) {
+    total += analogRead(pin);
+  }
+  return total / 5;
+}
+
 // 라인 추적 처리 (기본 동작)
 void executeLineTracing() {
-  // 라인 추적 동작 처리
-  Serial.println("Line tracing...");
+  Serial.println("=== Line Tracing Start ===");
+
+  int leftValue = readSensorAverage(LINE_SENSOR_LEFT);
+  int rightValue = readSensorAverage(LINE_SENSOR_RIGHT);
+
+  int error = leftValue - rightValue;   // 차이 계산
+  int correction = error / 4;           // 보정값: 더 민감하게
+  int baseSpeed = ROBOT_MOVEMENT_SPEED; // 기본 속도
+
+  // 속도 계산
+  int leftSpeed = baseSpeed - correction;
+  int rightSpeed = baseSpeed + correction;
+
+  // 속도 제한
+  leftSpeed = constrain(leftSpeed, 50, 255);   // 최소값 50 이상
+  rightSpeed = constrain(rightSpeed, 50, 255);
+
+  // 모터 제어
+  controlMotors(HIGH, leftSpeed, HIGH, rightSpeed);
+
+  // 디버깅 출력
+  Serial.print("Left Sensor: "); Serial.print(leftValue);
+  Serial.print(" | Right Sensor: "); Serial.print(rightValue);
+  Serial.print(" | Error: "); Serial.print(error);
+  Serial.print(" | Correction: "); Serial.print(correction);
+  Serial.print(" | Left Speed: "); Serial.print(leftSpeed);
+  Serial.print(" | Right Speed: "); Serial.println(rightSpeed);
+
+  delay(5); // 센서 주기
 }
 
 // 장애물 체크 함수

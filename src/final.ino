@@ -1,0 +1,424 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <Servo.h>
+
+// 핀 설정
+#define SS_PIN 2  // SDA
+#define RST_PIN 4
+
+#define pinBuzzer 3
+#define pinServo 6
+
+#define LEFT_MOTOR_DIR_PIN 7  // 1번(왼쪽) 모터 방향 제어 핀
+#define LEFT_MOTOR_PWM_PIN 5  // 1번(왼쪽) 모터 속도 제어 핀
+
+#define RIGHT_MOTOR_DIR_PIN 8 // 2번(오른쪽) 모터 방향 제어 핀
+#define RIGHT_MOTOR_PWM_PIN 6 // 2번(오른쪽) 모터 속도 제어 핀
+
+// 맵의 크기 정의 (8x8)
+#define GRID_SIZE 8
+
+// 경로 최대 길이 (최적화를 위해 제한)
+#define MAX_PATH_LENGTH 32
+
+const int ROBOT_SPEED = 100; // 로봇 속도 (80~120)
+const int TURN_DELAY_90 = 610;  // 90도 회전 시간
+const int TURN_DELAY_180 = 1220; // 180도 회전 시간
+
+// RFID 객체 생성
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+struct Point {
+  uint8_t x;
+  uint8_t y;
+};
+
+// RFID UID와 위치를 매핑하는 구조체
+struct RfidData {
+  const char key[9];   // RFID UID (문자열, 8자리 + 널 문자)
+  Point point;         // 해당 RFID가 가리키는 좌표
+};
+
+// UID → 좌표 매핑 데이터
+RfidData rfidDataMap[] = {
+  {"14081b74", {6, 5}},    // 예: 첫 번째 RFID는 (6, 5)로 이동
+  {"640fcf73", {7, 3}},    // 두 번째 RFID는 (7, 3)로 이동
+};
+
+// 장애물 맵: 0은 통로, 1은 장애물
+uint8_t grid[GRID_SIZE][GRID_SIZE] = {
+  {0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 1, 1, 1, 0, 0, 0, 0},
+  {0, 0, 0, 1, 0, 0, 0, 0},
+  {0, 0, 0, 1, 0, 0, 0, 0},
+  {0, 0, 0, 1, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0, 0}
+};
+
+// 상, 하, 좌, 우 방향 벡터
+int directions[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+
+// BFS 탐색을 위한 큐 배열
+Point queue[GRID_SIZE * GRID_SIZE];
+int qSize = 0;  // 큐 크기 (front/rear 없이 사용)
+
+// 경로를 저장하는 배열
+Point path[MAX_PATH_LENGTH];
+int pathLength = 0;
+int currentStep = 0;  // 현재 몇 번째 경로를 처리 중인지
+
+// BFS 알고리즘으로 최단 경로 탐색
+int bfs(Point start, Point goal, uint8_t prevX[GRID_SIZE][GRID_SIZE], uint8_t prevY[GRID_SIZE][GRID_SIZE]) {
+  bool visited[GRID_SIZE][GRID_SIZE] = {false};   // 방문 여부 배열
+  int dist[GRID_SIZE][GRID_SIZE];                 // 거리 배열
+
+  // 초기화: 거리 -1, 이전 좌표 255로 설정
+  for (int i = 0; i < GRID_SIZE; i++) {
+    for (int j = 0; j < GRID_SIZE; j++) {
+      dist[i][j] = -1;
+      prevX[i][j] = 255;
+      prevY[i][j] = 255;
+    }
+  }
+
+  // 시작 지점을 큐에 추가
+  qSize = 0;
+  queue[qSize++] = start;
+  visited[start.x][start.y] = true;
+  dist[start.x][start.y] = 0;
+
+  // BFS 탐색 루프
+  for (int i = 0; i < qSize; i++) {
+    Point current = queue[i];
+
+    // 목표 도달 시 거리 반환
+    if (current.x == goal.x && current.y == goal.y) {
+      return dist[current.x][current.y];
+    }
+
+    // 4방향 탐색
+    for (int d = 0; d < 4; d++) {
+      int nx = current.x + directions[d][0];
+      int ny = current.y + directions[d][1];
+
+      // 맵 안에 있고, 장애물 없고, 방문하지 않았다면
+      if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE &&
+          grid[nx][ny] == 0 && !visited[nx][ny]) {
+        visited[nx][ny] = true;
+        dist[nx][ny] = dist[current.x][current.y] + 1;
+        prevX[nx][ny] = current.x;
+        prevY[nx][ny] = current.y;
+        queue[qSize++] = { (uint8_t)nx, (uint8_t)ny };  // 다음 탐색 지점 추가
+      }
+    }
+  }
+
+  return -1;  // 경로 없음
+}
+
+// BFS 결과를 바탕으로 경로를 역추적하여 path[]에 저장
+void savePath(Point goal, uint8_t prevX[GRID_SIZE][GRID_SIZE], uint8_t prevY[GRID_SIZE][GRID_SIZE]) {
+  pathLength = 0;
+  uint8_t x = goal.x;
+  uint8_t y = goal.y;
+
+  // 목표 지점부터 시작해 이전 위치를 따라가며 저장
+  while (x != 255 && y != 255 && pathLength < MAX_PATH_LENGTH) {
+    path[pathLength++] = {x, y};
+    uint8_t px = prevX[x][y];
+    uint8_t py = prevY[x][y];
+    x = px;
+    y = py;
+  }
+
+  // 경로를 역순으로 뒤집음 (시작 → 목표 순으로)
+  for (int i = 0; i < pathLength / 2; i++) {
+    Point tmp = path[i];
+    path[i] = path[pathLength - 1 - i];
+    path[pathLength - 1 - i] = tmp;
+  }
+
+  currentStep = 0;  // 이동 시작점으로 초기화
+}
+
+// UID 문자열에 해당하는 좌표 찾기
+Point findValueByKey(const char* key) {
+  for (int i = 0; i < sizeof(rfidDataMap) / sizeof(rfidDataMap[0]); i++) {
+    if (strcmp(rfidDataMap[i].key, key) == 0) {
+      return rfidDataMap[i].point;
+    }
+  }
+  return {255, 255};  // 못 찾으면 유효하지 않은 값 반환
+}
+
+// RFID로부터 UID 읽어오기
+void readRFID(char* uidBuffer) {
+  // 새 카드가 인식되지 않았거나 UID 읽기 실패 시 종료
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+    uidBuffer[0] = '\0';
+    return;
+  }
+
+  // UID를 문자열로 변환 (hex)
+  for (byte i = 0; i < rfid.uid.size; i++) {
+    sprintf(&uidBuffer[i * 2], "%02x", rfid.uid.uidByte[i]);
+  }
+
+  uidBuffer[rfid.uid.size * 2] = '\0';  // 문자열 종료 문자
+  rfid.PICC_HaltA();  // 카드 통신 종료
+}
+
+// 상태 정의
+enum RunStateEnum {
+  STATE_WAIT_FOR_CARD = 0,
+  STATE_CHECK_CENTER = 1,
+  STATE_CHECK_LEFT_PREPARE = 11,
+  STATE_CHECK_LEFT_WAIT = 12,
+  STATE_CHECK_RIGHT_TURN = 13,
+  STATE_CHECK_RIGHT_GO = 14,
+  STATE_CHECK_RIGHT_DONE = 15,
+  STATE_LEFT_SELECTED = 101,
+  STATE_CENTER_SELECTED = 102,
+  STATE_RIGHT_SELECTED = 103,
+  STATE_GOAL_VIA_LEFT = 111,
+  STATE_GOAL_VIA_RIGHT = 113,
+  STATE_GOAL_REACHED = 201,
+  STATE_RETURN_PREPARE = 203,
+  STATE_RETURN_CENTER = 204,
+  STATE_RETURN_LEFT_1 = 301,
+  STATE_RETURN_LEFT_2 = 302,
+  STATE_RETURN_LEFT_3 = 303,
+  STATE_RETURN_RIGHT_1 = 401,
+  STATE_RETURN_RIGHT_2 = 402,
+  STATE_RETURN_RIGHT_3 = 403,
+  STATE_HOME_REACHED = 501,
+  STATE_DONE = 999
+};
+
+RunStateEnum RunState = STATE_WAIT_FOR_CARD;
+
+// 서보 모터 객체
+Servo myservo;
+
+// 설정된 변수
+long TickStart = 0;
+int SelectedPath = 0;
+int Power = 255;
+
+// 시작 위치 (고정): (0, 0)
+Point startPoint = {0, 0};
+
+// 초기화 함수
+void setup() {
+  Serial.begin(9600);
+  SPI.begin();
+  rfid.PCD_Init();
+  myservo.attach(pinServo);
+  
+  pinMode(pinBuzzer, OUTPUT);
+  pinMode(LEFT_MOTOR_PWM_PIN, OUTPUT);
+  pinMode(LEFT_MOTOR_PWM_PIN, OUTPUT);
+  pinMode(RIGHT_MOTOR_DIR_PIN, OUTPUT);
+  pinMode(RIGHT_MOTOR_PWM_PIN, OUTPUT);
+  
+  Serial.println("Ready to read RFID card");
+}
+
+// loop 함수
+void loop() {
+  switch (RunState) {
+    case STATE_WAIT_FOR_CARD:
+      handleWaitForCard();
+      break;
+      
+    // case STATE_CHECK_CENTER:
+    //   handleCheckCenter();
+    //   break;
+      
+    // case STATE_CHECK_LEFT_WAIT:
+    //   handleCheckLeftWait();
+    //   break;
+      
+    // // 여기에 필요한 상태들을 추가로 처리할 수 있습니다.
+      
+    // case STATE_DONE:
+    //   handleDone();
+    //   break;
+
+    // default:
+    //   DoLineTracing();  // 기본 라인 추적 동작
+    //   break;
+  }
+}
+
+// 카드 감지 대기
+void handleWaitForCard() {
+  static bool hasPath = false;  // 경로 유무 상태 저장
+
+  Serial.println("handleWaitForCard() called");
+
+  if (!hasPath) {
+      char rfidUID[16];  // UID 저장 버퍼
+      readRFID(rfidUID); // UID 읽기
+
+      // 디버깅: RFID UID 출력
+      Serial.print("읽은 RFID UID: ");
+      Serial.println(rfidUID);
+
+      if (rfidUID[0] != '\0') {  // UID가 유효한 경우
+          Serial.println("유효한 UID를 읽음, 다음 상태로 이동");
+
+          RunState = STATE_CHECK_CENTER;
+
+          // 소리 출력 (간단하게 변경)
+          tone(pinBuzzer, 262, 100); // 100ms 동안 262Hz 소리
+          delay(100);
+          tone(pinBuzzer, 330, 250); // 250ms 동안 330Hz 소리
+          noTone(pinBuzzer);
+
+          // RFID UID로 목표 좌표 찾기
+          Point goalPoint = findValueByKey(rfidUID);
+          // 디버깅: 목표 좌표 출력
+          Serial.print("목표 좌표: ");
+          Serial.print(goalPoint.x);
+          Serial.print(", ");
+          Serial.println(goalPoint.y);
+
+          if (goalPoint.x != 255 && goalPoint.y != 255) {  // 유효 좌표인지 확인
+              uint8_t prevX[GRID_SIZE][GRID_SIZE];
+              uint8_t prevY[GRID_SIZE][GRID_SIZE];
+
+              // BFS 수행
+              Serial.println("BFS를 수행하여 최단 경로를 찾습니다...");
+              int result = bfs(startPoint, goalPoint, prevX, prevY);
+
+              // 디버깅: BFS 결과 출력
+              if (result != -1) {
+                  Serial.print("경로가 존재합니다. 경로 길이: ");
+                  Serial.println(result);
+                  savePath(goalPoint, prevX, prevY);  // 경로 저장
+                  hasPath = true;  // 다음 loop에서 이동 시작
+
+                  // 경로 출력 (추가된 부분)
+                  Serial.println("경로 출력:");
+                  for (int i = 0; i < pathLength; i++) {
+                      Serial.print("Step ");
+                      Serial.print(i);
+                      Serial.print(": ");
+                      Serial.print(path[i].x);
+                      Serial.print(", ");
+                      Serial.println(path[i].y);
+                  }
+              } else {
+                  Serial.println("경로를 찾을 수 없습니다.");
+              }
+          } else {
+              Serial.println("유효하지 않은 좌표입니다.");
+          }
+      } else {
+          Serial.println("유효한 RFID UID가 아닙니다.");
+      }
+  } else {
+      // 경로를 따라 한 칸씩 이동
+      if (currentStep < pathLength) {
+          Serial.print("이동: ");
+          Serial.print(path[currentStep].x);
+          Serial.print(", ");
+          Serial.println(path[currentStep].y);
+          currentStep++;
+          delay(500);  // 이동 간 시간 지연 (이 부분은 실제 환경에 맞게 최적화 가능)
+      } else {
+          Serial.println("경로 끝, 초기화...");
+          hasPath = false;  // 경로 끝나면 상태 초기화
+          currentStep = 0;  // 경로 처음부터 다시 시작
+      }
+  }
+
+  delay(100);  // 짧은 지연 시간, 필요에 따라 조정
+}
+
+// 센터 체크 처리
+void handleCheckCenter() {
+  // 센터 체크 로직 처리
+  Serial.println("Checking center");
+  RunState = STATE_CHECK_LEFT_PREPARE;
+}
+
+// 왼쪽 준비 상태 처리
+void handleCheckLeftPrepare() {
+  // 왼쪽 준비 상태에서 필요한 작업을 수행
+  RunState = STATE_CHECK_LEFT_WAIT;
+}
+
+// 왼쪽 대기 상태 처리
+void handleCheckLeftWait() {
+  if (millis() - TickStart > 160) {
+    stopMotors();
+    delay(100);
+
+    if (CheckObstacle()) {
+      SelectedPath = 3;  // 우측 경로
+      RunState = STATE_CHECK_RIGHT_TURN;
+      turnAround180(false);  // 바로 뒤돌기
+    } else {
+      SelectedPath = 1;  // 좌측 경유로 선택
+      RunState = STATE_LEFT_SELECTED;
+      moveRobotForward(Power);
+    }
+  }
+}
+
+// 목표 도달 후 처리
+void handleDone() {
+  // 목표에 도달한 후 실행할 코드
+  Serial.println("Goal reached. Completing task.");
+  // 필요한 동작을 처리한 후 종료 상태로 변경
+  RunState = STATE_DONE;
+}
+
+// 라인 추적 처리 (기본 동작)
+void DoLineTracing() {
+  // 라인 추적 동작 처리
+  Serial.println("Line tracing...");
+}
+
+// 장애물 체크 함수
+bool CheckObstacle() {
+  // 장애물이 있는지 체크하는 함수
+  return false;  // 임시로 장애물 없음으로 처리
+}
+
+// 모터 제어 함수
+void controlMotors(int leftDirection, int leftPower, int rightDirection, int rightPower) {
+  // 왼쪽 모터 설정
+  digitalWrite(LEFT_MOTOR_DIR_PIN, leftDirection);
+  analogWrite(LEFT_MOTOR_PWM_PIN, leftPower);
+
+  // 오른쪽 모터 설정
+  digitalWrite(RIGHT_MOTOR_DIR_PIN, !rightDirection);
+  analogWrite(RIGHT_MOTOR_PWM_PIN, rightPower);
+}
+
+void moveRobotForward(int power) {
+  controlMotors(HIGH, power, HIGH, power);  // 두 모터 전진
+}
+
+void stopMotors() {
+  digitalWrite(LEFT_MOTOR_DIR_PIN, LOW);
+  digitalWrite(LEFT_MOTOR_PWM_PIN, LOW);
+  digitalWrite(RIGHT_MOTOR_DIR_PIN, LOW);
+  digitalWrite(RIGHT_MOTOR_PWM_PIN, LOW);
+}
+
+void turnRobotRightInPlace(int power) {
+  controlMotors(HIGH, power, LOW, power);   // 왼쪽 모터 전진, 오른쪽 모터 후진
+}
+
+// 180도 회전 함수
+void turnAround180(bool clockwise) {
+  turnRobotRightInPlace(ROBOT_SPEED);   // 우회전 시작
+  delay(TURN_DELAY_180);                // 180도 회전
+  stopMotors();                         // 정지
+}

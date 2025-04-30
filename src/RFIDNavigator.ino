@@ -1,32 +1,37 @@
-#include <SPI.h>
-#include <MFRC522.h>
+#include <SPI.h>         // SPI 통신 라이브러리 (RFID와 통신에 필요)
+#include <MFRC522.h>     // MFRC522 RFID 리더 라이브러리
 
-#define SS_PIN 2  // SDA
-#define RST_PIN 4
+// RFID 핀 설정
+#define SS_PIN 2         // RFID의 SDA 핀
+#define RST_PIN 4        // RFID의 RST 핀
 
+// 맵의 크기 정의 (8x8)
 #define GRID_SIZE 8
 
-MFRC522 rfid(SS_PIN, RST_PIN);  // RFID 초기화
+// 경로 최대 길이 (최적화를 위해 제한)
+#define MAX_PATH_LENGTH 32
 
-// 좌표를 표현하는 구조체
+MFRC522 rfid(SS_PIN, RST_PIN);  // RFID 리더 객체 생성
+
+// 좌표를 표현하는 구조체 (x, y)
 struct Point {
-  int x;
-  int y;
+  uint8_t x;
+  uint8_t y;
 };
 
-// RFID 키와 해당 위치 정보를 매핑하는 구조체
+// RFID UID와 위치를 매핑하는 구조체
 struct RfidData {
-  const char* key;
-  Point point;
+  const char key[9];   // RFID UID (문자열, 8자리 + 널 문자)
+  Point point;         // 해당 RFID가 가리키는 좌표
 };
 
-// RFID 키와 목표 좌표 정보 (목표 지점 포함)
-RfidData rfidDataMap[] = { 
-  {"14081b74", {6, 5}},  
-  {"640fcf73", {7, 3}},  // 목표 지점 (7, 3)
+// UID → 좌표 매핑 데이터
+RfidData rfidDataMap[] = {
+  {"14081b74", {6, 5}},    // 예: 첫 번째 RFID는 (6, 5)로 이동
+  {"640fcf73", {7, 3}},    // 두 번째 RFID는 (7, 3)로 이동
 };
 
-// 8x8 크기의 그리드 (0은 빈 공간, 1은 장애물)
+// 장애물 맵: 0은 통로, 1은 장애물
 uint8_t grid[GRID_SIZE][GRID_SIZE] = {
   {0, 0, 0, 0, 0, 0, 0, 0},
   {0, 1, 1, 1, 0, 0, 0, 0},
@@ -38,154 +43,159 @@ uint8_t grid[GRID_SIZE][GRID_SIZE] = {
   {0, 0, 0, 0, 0, 0, 0, 0}
 };
 
-// 상, 하, 좌, 우 방향
+// 상, 하, 좌, 우 방향 벡터
 int directions[4][2] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
-// 큐 (BFS에서 사용)
+// BFS 탐색을 위한 큐 배열
 Point queue[GRID_SIZE * GRID_SIZE];
-int front = 0, rear = 0;
+int qSize = 0;  // 큐 크기 (front/rear 없이 사용)
 
-// 방문 여부 및 거리, 이전 위치를 저장하는 배열
-bool visited[GRID_SIZE][GRID_SIZE];
-int dist[GRID_SIZE][GRID_SIZE];
-Point prev[GRID_SIZE][GRID_SIZE];
+// 경로를 저장하는 배열
+Point path[MAX_PATH_LENGTH];
+int pathLength = 0;
+int currentStep = 0;  // 현재 몇 번째 경로를 처리 중인지
 
-// 큐에 좌표 추가
-void enqueue(int x, int y) {
-  queue[rear].x = x;
-  queue[rear].y = y;
-  rear = (rear + 1) % (GRID_SIZE * GRID_SIZE);
-}
+// BFS 알고리즘으로 최단 경로 탐색
+int bfs(Point start, Point goal, uint8_t prevX[GRID_SIZE][GRID_SIZE], uint8_t prevY[GRID_SIZE][GRID_SIZE]) {
+  bool visited[GRID_SIZE][GRID_SIZE] = {false};   // 방문 여부 배열
+  int dist[GRID_SIZE][GRID_SIZE];                 // 거리 배열
 
-// 큐에서 좌표 추출
-Point dequeue() {
-  Point p = queue[front];
-  front = (front + 1) % (GRID_SIZE * GRID_SIZE);
-  return p;
-}
+  // 초기화: 거리 -1, 이전 좌표 255로 설정
+  for (int i = 0; i < GRID_SIZE; i++) {
+    for (int j = 0; j < GRID_SIZE; j++) {
+      dist[i][j] = -1;
+      prevX[i][j] = 255;
+      prevY[i][j] = 255;
+    }
+  }
 
-// BFS를 통해 시작점에서 목표점까지의 최단 거리 계산
-int bfs(Point start, Point goal) {
-  // 초기화
-  memset(visited, false, sizeof(visited));
-  memset(dist, -1, sizeof(dist));  // -1은 미방문
-  memset(prev, -1, sizeof(prev));  // -1로 초기화
-  front = rear = 0;
-
-  // 시작점 큐에 추가
-  enqueue(start.x, start.y);
+  // 시작 지점을 큐에 추가
+  qSize = 0;
+  queue[qSize++] = start;
   visited[start.x][start.y] = true;
   dist[start.x][start.y] = 0;
 
-  while (front != rear) {
-    Point current = dequeue();
+  // BFS 탐색 루프
+  for (int i = 0; i < qSize; i++) {
+    Point current = queue[i];
 
-    // 목표 지점에 도달하면 거리 반환
+    // 목표 도달 시 거리 반환
     if (current.x == goal.x && current.y == goal.y) {
       return dist[current.x][current.y];
     }
 
-    // 상, 하, 좌, 우로 이동
-    for (int i = 0; i < 4; i++) {
-      int nx = current.x + directions[i][0];
-      int ny = current.y + directions[i][1];
+    // 4방향 탐색
+    for (int d = 0; d < 4; d++) {
+      int nx = current.x + directions[d][0];
+      int ny = current.y + directions[d][1];
 
-      // 유효 좌표인지, 장애물이 없는지, 방문하지 않은 곳인지 확인
+      // 맵 안에 있고, 장애물 없고, 방문하지 않았다면
       if (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE &&
           grid[nx][ny] == 0 && !visited[nx][ny]) {
-        enqueue(nx, ny);
         visited[nx][ny] = true;
         dist[nx][ny] = dist[current.x][current.y] + 1;
-        prev[nx][ny] = current;  // 이전 위치 기록
+        prevX[nx][ny] = current.x;
+        prevY[nx][ny] = current.y;
+        queue[qSize++] = { (uint8_t)nx, (uint8_t)ny };  // 다음 탐색 지점 추가
       }
     }
   }
 
-  return -1;  // 목표 지점에 도달할 수 없으면 -1 반환
+  return -1;  // 경로 없음
 }
 
-// 경로를 출력하는 함수
-void printPath(Point goal) {
-  Point path[GRID_SIZE * GRID_SIZE];
-  int pathLength = 0;
+// BFS 결과를 바탕으로 경로를 역추적하여 path[]에 저장
+void savePath(Point goal, uint8_t prevX[GRID_SIZE][GRID_SIZE], uint8_t prevY[GRID_SIZE][GRID_SIZE]) {
+  pathLength = 0;
+  uint8_t x = goal.x;
+  uint8_t y = goal.y;
 
-  // 목표부터 시작하여 경로를 역추적
-  for (Point p = goal; p.x != -1 && p.y != -1; p = prev[p.x][p.y]) {
-    path[pathLength++] = p;
+  // 목표 지점부터 시작해 이전 위치를 따라가며 저장
+  while (x != 255 && y != 255 && pathLength < MAX_PATH_LENGTH) {
+    path[pathLength++] = {x, y};
+    uint8_t px = prevX[x][y];
+    uint8_t py = prevY[x][y];
+    x = px;
+    y = py;
   }
 
-  // 경로 출력 (역순으로 출력)
-  Serial.println("경로: ");
-  for (int i = pathLength - 1; i >= 0; i--) {
-    Serial.print("(");
-    Serial.print(path[i].x);
-    Serial.print(", ");
-    Serial.print(path[i].y);
-    Serial.print(") ");
+  // 경로를 역순으로 뒤집음 (시작 → 목표 순으로)
+  for (int i = 0; i < pathLength / 2; i++) {
+    Point tmp = path[i];
+    path[i] = path[pathLength - 1 - i];
+    path[pathLength - 1 - i] = tmp;
   }
-  Serial.println();
+
+  currentStep = 0;  // 이동 시작점으로 초기화
 }
 
-// 주어진 RFID 키에 해당하는 좌표를 찾는 함수
+// UID 문자열에 해당하는 좌표 찾기
 Point findValueByKey(const char* key) {
   for (int i = 0; i < sizeof(rfidDataMap) / sizeof(rfidDataMap[0]); i++) {
     if (strcmp(rfidDataMap[i].key, key) == 0) {
       return rfidDataMap[i].point;
     }
   }
-  return Point{-1, -1};  // 키가 없으면 (-1, -1) 반환
+  return {255, 255};  // 못 찾으면 유효하지 않은 값 반환
 }
 
-// RFID UID를 읽는 함수
-String readRFID() {
+// RFID로부터 UID 읽어오기
+void readRFID(char* uidBuffer) {
+  // 새 카드가 인식되지 않았거나 UID 읽기 실패 시 종료
   if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
-    return "";
+    uidBuffer[0] = '\0';
+    return;
   }
 
-  String uidString = "";
+  // UID를 문자열로 변환 (hex)
   for (byte i = 0; i < rfid.uid.size; i++) {
-    if (rfid.uid.uidByte[i] < 0x10) uidString += "0";  // 앞자리가 한 자리일 때 0 추가
-    uidString += String(rfid.uid.uidByte[i], HEX);
+    sprintf(&uidBuffer[i * 2], "%02x", rfid.uid.uidByte[i]);
   }
+
+  uidBuffer[rfid.uid.size * 2] = '\0';  // 문자열 종료 문자
   rfid.PICC_HaltA();  // 카드 통신 종료
-  return uidString;
 }
 
-Point startPoint = {0, 0};  // 시작점 (0, 0)
+// 시작 위치 (고정): (0, 0)
+Point startPoint = {0, 0};
 
 void setup() {
-  Serial.begin(115200);
-  SPI.begin();           // SPI 초기화
+  Serial.begin(115200);  // 시리얼 통신 시작
+  SPI.begin();           // SPI 시작
   rfid.PCD_Init();       // RFID 초기화
   Serial.println("RFID 리더 준비 완료!");
 }
 
 void loop() {
-  String rfidUID = readRFID();
-  if (rfidUID != "") {
-    Serial.print("RFID UID 읽음: ");
-    Serial.println(rfidUID);
+  static bool hasPath = false;  // 경로 유무 상태 저장
 
-    // RFID UID에 해당하는 목표 지점 찾기
-    Point goalPoint = findValueByKey(rfidUID.c_str());
+  if (!hasPath) {
+    char rfidUID[16];         // UID 저장 버퍼
+    readRFID(rfidUID);        // UID 읽기
 
-    Serial.print("목표 위치: (");
-    Serial.print(goalPoint.x); 
-    Serial.print(", ");
-    Serial.print(goalPoint.y);
-    Serial.println(")");
-
-    // 시작점에서 목표점까지의 최단 경로 계산
-    int result = bfs(startPoint, goalPoint);
-
-    if (result != -1) {
-      Serial.print("최단 경로의 길이: ");
-      Serial.println(result);
-      printPath(goalPoint);  // 경로 출력
+    if (rfidUID[0] != '\0') { // UID가 유효한 경우
+      Point goal = findValueByKey(rfidUID); // 목표 지점 검색
+      if (goal.x != 255 && goal.y != 255) { // 유효 좌표인지 확인
+        uint8_t prevX[GRID_SIZE][GRID_SIZE];
+        uint8_t prevY[GRID_SIZE][GRID_SIZE];
+        int result = bfs(startPoint, goal, prevX, prevY); // BFS 수행
+        if (result != -1) { // 경로 존재 시
+          savePath(goal, prevX, prevY);  // 경로 저장
+          hasPath = true;                // 다음 loop에서 이동 시작
+        }
+      }
+    }
+  } else {
+    // 경로를 따라 한 칸씩 이동
+    if (currentStep < pathLength) {
+      Serial.print("이동: ");
+      Serial.print(path[currentStep].x);
+      Serial.print(", ");
+      Serial.println(path[currentStep].y);
+      currentStep++;
+      delay(500); // 이동 간 시간 지연
     } else {
-      Serial.println("목표 지점에 도달할 수 없습니다.");
+      hasPath = false;  // 경로 끝나면 상태 초기화
     }
   }
-
-  delay(100);  // 0.1초 대기
 }

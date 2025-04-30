@@ -44,8 +44,8 @@ int bfs(Point start, Point goal){
   front = rear = 0;
 
   enqueue(start.x, start.y);
-  visited[start.x][start.y];
-  dist[start.x][start.y];
+  visited[start.x][start.y] = true;
+  dist[start.x][start.y] = 0; // 시작점 거리 설정
 
   while (front != rear){
     Point current = dequeue();

@@ -29,7 +29,7 @@
 // 경로 최대 길이 (최적화를 위해 제한)
 #define MAX_PATH_LENGTH 32
 
-const int ROBOT_MOVEMENT_SPEED = 100; // 로봇 속도
+const int ROBOT_MOVEMENT_SPEED = 80; // 로봇 속도
 const int TURN_DELAY_90 = 610;  // 90도 회전 시간
 const int TURN_DELAY_180 = 1220; // 180도 회전 시간
 
@@ -408,12 +408,25 @@ int readSensorAverage(int pin) {
   return total / 5;
 }
 
+// 기준값 설정
+const int SENSOR_WHITE = 400;  // 흰색일 때 측정값
+const int SENSOR_BLACK = 700;  // 검정일 때 측정값
+
+int normalizeSensor(int rawValue) {
+  // 센서값을 0~1000 범위로 정규화
+  return constrain(map(rawValue, SENSOR_WHITE, SENSOR_BLACK, 0, 1000), 0, 1000);
+}
+
 // 라인 추적 처리 (기본 동작)
 void executeLineTracing() {
   Serial.println("=== Line Tracing Start ===");
 
   int leftValue = readSensorAverage(LINE_SENSOR_LEFT);
   int rightValue = readSensorAverage(LINE_SENSOR_RIGHT);
+
+  // 정규화 적용
+  int leftValue = normalizeSensor(leftRaw);
+  int rightValue = normalizeSensor(rightRaw);
 
   int error = leftValue - rightValue;   // 차이 계산
   int correction = error / 4;           // 보정값: 더 민감하게

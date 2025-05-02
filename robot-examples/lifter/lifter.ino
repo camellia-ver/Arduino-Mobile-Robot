@@ -26,7 +26,7 @@ Servo servo;  // 리프터용 서보 모터 인스턴스 선언
 // [3] 초기화 함수
 // ----------------------------
 void moveLifter(int directMove) {
-  servo.attach(pinServo);  // 서보 연결
+  servo.attach(lifterServoPin);  // 서보 연결
   delay(10);
 
   servo.write(directMove);  // 리프터 위로 올림
@@ -38,25 +38,25 @@ void moveLifter(int directMove) {
 // ----------------------------
 // [4] 리프트 업 함수
 // ----------------------------
-void LifterUp() {
-  moveLifter(SERVO_UP);
+void liftUp() {
+  moveLifter(SERVO_POS_UP);
 }
 
 // ----------------------------
 // [5] 리프트 다운 함수
 // ----------------------------
-void LifterDown() {
-  moveLifter(SERVO_DOWN);
+void liftDown() {
+  moveLifter(SERVO_POS_DOWN);
 }
 
 // ----------------------------
 // [7] setup()
 // ----------------------------
 void setup() {
-  LifterUp();  // 리프터를 위로 올림
+  liftUp();  // 리프터를 위로 올림
   delay(3000);
 
-  LifterDown();  // 리프터를 아래로 내림
+  liftDown();  // 리프터를 아래로 내림
 }
 
 // ----------------------------

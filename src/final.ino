@@ -223,7 +223,7 @@ Servo myservo;
 // 설정된 변수
 long startTime = 0;
 int currentPath = 0;
-int Power = 255;
+int defaultSpeed = 255;
 
 // 시작 위치 (고정): (0, 0)
 Point startPoint = {0, 0};
@@ -233,9 +233,9 @@ void setup() {
   Serial.begin(9600);
   SPI.begin();
   rfid.PCD_Init();
-  myservo.attach(pinServo);
+  myservo.attach(lifterServoPin);
   
-  pinMode(pinBuzzer, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
 
   pinMode(LEFT_MOTOR_DIR_PIN, OUTPUT);
   pinMode(LEFT_MOTOR_PWM_PIN, OUTPUT);
@@ -294,10 +294,10 @@ void waitForRFIDCard() {
           RunState = STATE_CHECK_CENTER;
 
           // 소리 출력 (간단하게 변경)
-          tone(pinBuzzer, 262, 100); // 100ms 동안 262Hz 소리
+          tone(buzzerPin, 262, 100); // 100ms 동안 262Hz 소리
           delay(100);
-          tone(pinBuzzer, 330, 250); // 250ms 동안 330Hz 소리
-          noTone(pinBuzzer);
+          tone(buzzerPin, 330, 250); // 250ms 동안 330Hz 소리
+          noTone(buzzerPin);
 
           // RFID UID로 목표 좌표 찾기
           Point goalPoint = findValueByKey(rfidUID);
@@ -386,7 +386,7 @@ void handleCheckLeftWait() {
     } else {
       currentPath = 1;  // 좌측 경유로 선택
       RunState = STATE_LEFT_SELECTED;
-      moveRobotForward(Power);
+      moveRobotForward(defaultSpeed);
     }
   }
 }

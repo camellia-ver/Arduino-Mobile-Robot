@@ -21,8 +21,8 @@ void setup() {
 // [3] loop()
 // ----------------------------
 void loop() {
-  int value1 = analogRead(pinLT1);  // IR1 값 읽기
-  int value2 = analogRead(pinLT2);  // IR2 값 읽기
+  int value1 = analogRead(leftIrSensor1Pin);  // IR1 값 읽기
+  int value2 = analogRead(IR_PIN_RIGHT);  // IR2 값 읽기
 
   if (value1 < 450) {
     Serial.print("WHITE, ");

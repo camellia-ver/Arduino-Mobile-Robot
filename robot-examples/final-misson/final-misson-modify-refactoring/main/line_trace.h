@@ -7,7 +7,6 @@
 int runState = 0;                  ///< 현재 실행 상태
 int selectedPath = 0;             ///< 선택된 경로 번호
 unsigned long lineTraceStartTime = 0; ///< 라인트레이싱 시작 시간
-int OBSTACLE_THRESHOLD = 1005;    ///< 장애물 감지를 위한 임계값
 
 /**
  * 왼쪽으로 90도 회전하는 함수  

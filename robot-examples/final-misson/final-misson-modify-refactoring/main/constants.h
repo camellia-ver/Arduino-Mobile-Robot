@@ -15,7 +15,10 @@ constexpr uint8_t SERVO_PIN = 9;        // 서보 모터 제어 핀 (서보 모�
 // 라인트레이싱 센서 핀 설정
 constexpr uint8_t IR_PIN_LEFT = A6;     // 왼쪽 센서 (라인 추적을 위한 왼쪽 IR 센서)
 constexpr uint8_t IR_PIN_RIGHT = A7;    // 오른쪽 센서 (라인 추적을 위한 오른쪽 IR 센서)
-constexpr uint8_t IR_PIN_FRONT_CENTER = A1; // 전방 중앙 센서 (라인 추적을 위한 중앙 IR 센서)
+constexpr uint8_t IR_PIN_FRONT_CENTER = A1; // 전방 중앙 센서 (라인 추적을 위한 중앙 IR 센서) 
+
+// 장애물 감지 임계값 (장애물의 크기를 판별하는 값)
+constexpr int OBSTACLE_THRESHOLD = 1005; 
 
 // 모터 핀 설정
 constexpr uint8_t MOTOR_LEFT_DIR_PIN = 7; // 왼쪽 모터 방향 핀 (왼쪽 모터의 회전 방향 제어)
@@ -52,9 +55,20 @@ constexpr unsigned long TURN_FINAL_FORWARD   = 90UL;     // 회전 후 이동 �
 constexpr unsigned long TURN_EXTRA_DELAY     = 250UL;    // 회전 후 추가적인 지연 시간 (ms)
 constexpr unsigned long SKIP_LINE_DURATION   = 200UL;    // 라인 추적 중 라인을 넘는 시간 지연 (ms)
 constexpr unsigned long INTERSECTION_WAIT    = 160UL;    // 교차로 대기 시간 (ms)
+constexpr unsigned long TURN_DURATION_180    = 1200UL;   // 180도 회전 시간 (ms)
 
 // 외부 변수 선언
 extern int runState;  // 시스템의 현재 실행 상태 (상태 값에 따라 다른 동작 수행)
 extern int selectedPath; // 선택된 경로 (라인 추적을 위한 경로 선택)
-extern int OBSTACLE_THRESHOLD; // 장애물 감지 임계값 (장애물의 크기를 판별하는 값)
 extern unsigned long lineTraceStartTime; // 라인트레이싱 시작 시간 (라인 추적을 시작한 시간 기록)
+
+// runState 상태 정의
+enum RunState {
+  STATE_WAIT_FOR_RFID = 0,            // RFID를 기다리는 상태
+  STATE_LINE_TRACE = 1,               // 라인 추적 상태
+  STATE_TURN_LEFT_90 = 11,            // 90도 좌회전 상태
+  STATE_TURN_DECISION = 12,           // 회전 방향 결정 상태
+  STATE_TURN_LEFT_180 = 13,           // 180도 좌회전 상태
+  STATE_FORWARD_AFTER_DECISION = 101, // 결정 후 전진 상태
+  STATE_FORWARD_AFTER_TURN = 102      // 회전 후 전진 상태
+};

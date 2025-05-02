@@ -223,7 +223,7 @@ Servo myservo;
 // 설정된 변수
 long startTime = 0;
 int currentPath = 0;
-int defaultSpeed = 255;
+int DEFAULT_SPEED = 255;
 
 // 시작 위치 (고정): (0, 0)
 Point startPoint = {0, 0};
@@ -386,7 +386,7 @@ void handleCheckLeftWait() {
     } else {
       currentPath = 1;  // 좌측 경유로 선택
       RunState = STATE_LEFT_SELECTED;
-      moveRobotForward(defaultSpeed);
+      moveRobotForward(DEFAULT_SPEED);
     }
   }
 }

@@ -10,6 +10,7 @@ bool isTurning = false;
 unsigned long turnStartTime = 0;
 
 void setup() {
+  runState = STATE_WAIT_FOR_RFID;
   initPins();            // 핀 모드 설정
   Serial.begin(9600);    // 시리얼 통신 시작 (9600bps)
   liftDown();            // 서보 리프터 초기 위치(아래)로 이동
@@ -23,6 +24,7 @@ void loop() {
       handleWaitForRFID();
       break;
     case STATE_TURN_DECISION:
+      lineTraceStartTime = millis();
       handleTurnDecision();
       break;
     case STATE_TURN_LEFT_180:

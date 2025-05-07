@@ -1,3 +1,7 @@
+#ifndef ROBOT_CONTROL_H 
+#define ROBOT_CONTROL_H 
+
+#include <SPI.h> 
 #include <Servo.h>
 
 /// @brief 서보 모터의 이동 범위 설정 (기준값에서 ±값)
@@ -46,3 +50,5 @@ void liftUp() {
 void liftDown() {
     moveLifter(SERVO_DOWN);
 }
+
+#endif // ROBOT_CONTROL_H

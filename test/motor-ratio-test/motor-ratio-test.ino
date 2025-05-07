@@ -13,8 +13,8 @@
 
 int defaultMotorSpeed = 100;   ///< 기본 모터 속도
 
-float leftMotorRatio = 1.00;   ///< 왼쪽 모터 보정 비율
-float rightMotorRatio = 1.00;  ///< 오른쪽 모터 보정 비율
+float LEFT_MOTOR_RATIO = 1.00;   ///< 왼쪽 모터 보정 비율
+float RIGHT_MOTOR_RATIO = 1.00;  ///< 오른쪽 모터 보정 비율
 
 
 void initMotor() {
@@ -36,10 +36,10 @@ void setMotorControl(int leftDirection, int leftSpeed, int rightDirection, int r
     bool rightDirSignal = (rightDirection == DIRECTION_FORWARD) ? LOW : HIGH;
   
     digitalWrite(PIN_LEFT_DIR, leftDirSignal);
-    analogWrite(PIN_LEFT_PWM, leftSpeed * leftMotorRatio);
+    analogWrite(PIN_LEFT_PWM, leftSpeed * LEFT_MOTOR_RATIO);
   
     digitalWrite(PIN_RIGHT_DIR, rightDirSignal);
-    analogWrite(PIN_RIGHT_PWM, rightSpeed * rightMotorRatio);
+    analogWrite(PIN_RIGHT_PWM, rightSpeed * RIGHT_MOTOR_RATIO);
 }
 
 /**

@@ -14,11 +14,11 @@
 // ----------------------------
 // [2] 전역 변수 및 객체
 // ----------------------------
-int defaultMotorSpeed = 100;   // 기본 모터 속도
+int DEFAULT_MOTOR_SPEED = 100;   // 기본 모터 속도
 bool prevButtonState = HIGH;  // 버튼의 이전 상태 저장
 
-float leftMotorRatio = 1.00;   // 왼쪽 모터 보정 비율
-float rightMotorRatio = 1.00;  // 오른쪽 모터 보정 비율
+float LEFT_MOTOR_RATIO = 1.00;   // 왼쪽 모터 보정 비율
+float RIGHT_MOTOR_RATIO = 1.00;  // 오른쪽 모터 보정 비율
 
 unsigned long moveStartTime = 0;      // 주행 시작 시간
 const unsigned long moveDuration = 1000; // 주행 지속 시간 (ms)
@@ -42,10 +42,10 @@ void setMotorControl(int leftDirection, int leftSpeed, int rightDirection, int r
   bool rightDirSignal = (rightDirection == DIRECTION_FORWARD) ? LOW : HIGH;
 
   digitalWrite(PIN_LEFT_DIR, leftDirSignal);
-  analogWrite(PIN_LEFT_PWM, leftSpeed * leftMotorRatio);
+  analogWrite(PIN_LEFT_PWM, leftSpeed * LEFT_MOTOR_RATIO);
 
   digitalWrite(PIN_RIGHT_DIR, rightDirSignal);
-  analogWrite(PIN_RIGHT_PWM, rightSpeed * rightMotorRatio);
+  analogWrite(PIN_RIGHT_PWM, rightSpeed * RIGHT_MOTOR_RATIO);
 }
 
 /**
@@ -113,19 +113,19 @@ void loop() {
     switch (currentState) {
       case STATE_FORWARD:
         Serial.println("상태: 전진");
-        driveForward(defaultMotorSpeed);
+        driveForward(DEFAULT_MOTOR_SPEED);
         break;
       case STATE_BACKWARD:
         Serial.println("상태: 후진");
-        driveBackward(defaultMotorSpeed);
+        driveBackward(DEFAULT_MOTOR_SPEED);
         break;
       case STATE_LEFT:
         Serial.println("상태: 좌회전");
-        turnLeft(defaultMotorSpeed);
+        turnLeft(DEFAULT_MOTOR_SPEED);
         break;
       case STATE_RIGHT:
         Serial.println("상태: 우회전");
-        turnRight(defaultMotorSpeed);
+        turnRight(DEFAULT_MOTOR_SPEED);
         break;
       default:
         Serial.println("상태: 정지");

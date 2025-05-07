@@ -23,8 +23,8 @@ int ROTATE_FINE_TUNE = 50;         // 회전 후 보정 시간 (ms)
 // ----------------------------
 // [2] 전역 변수 및 객체
 // ----------------------------
-float leftMotorRatio = 1.00;
-float rightMotorRatio = 1.00;
+float LEFT_MOTOR_RATIO = 1.00;
+float RIGHT_MOTOR_RATIO = 1.00;
 
 bool prevButtonState = HIGH;
 bool alreadyRotated = false;
@@ -37,10 +37,10 @@ void setMotorControl(int leftDirection, int leftSpeed, int rightDirection, int r
   bool rightDirSignal = (rightDirection == DIRECTION_FORWARD) ? LOW : HIGH;
 
   digitalWrite(PIN_LEFT_DIR, leftDirSignal);
-  analogWrite(PIN_LEFT_PWM, int(leftSpeed * leftMotorRatio));
+  analogWrite(PIN_LEFT_PWM, int(leftSpeed * LEFT_MOTOR_RATIO));
 
   digitalWrite(PIN_RIGHT_DIR, rightDirSignal);
-  analogWrite(PIN_RIGHT_PWM, int(rightSpeed * rightMotorRatio));
+  analogWrite(PIN_RIGHT_PWM, int(rightSpeed * RIGHT_MOTOR_RATIO));
 }
 
 void haltMotors() {

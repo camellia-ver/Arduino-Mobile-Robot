@@ -1,5 +1,8 @@
 #include <SPI.h>
+
 #include "RFID.h"
+#include "MoveMotor.h"
+#include "Lifter.h"
 
 void setup() {
     Serial.begin(115200);

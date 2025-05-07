@@ -82,7 +82,6 @@ void liftDown() {
 }
 
 #define IR4_OBSTACLE_TEST    0 // 장애물 테스트 모드 플래그
-int OBSTACLE_THRESHOLD = 1005; // 장애물 거리 임계값
 
 // 두 모터 동시 제어 함수
 void driveMotors(int dir1, int power1, int dir2, int power2) {
@@ -146,7 +145,7 @@ void performLineTracing() {
   int v2 = analogRead(IR_PIN_RIGHT);
 
   // 교차로 감지: 양쪽 센서 모두 검정
-  if(v1>IR_THRESHOLD_BLACK && v2>IR_THRESHOLD_BLACK) {
+  if(v1 > IR_THRESHOLD_BLACK && v2 > IR_THRESHOLD_BLACK) {
     switch(runState) {
       case 1:
         // 중앙 경유로 장애물 검사
@@ -163,9 +162,146 @@ void performLineTracing() {
           delay(SKIP_LINE_DURATION);
         }
         break;
-      // 이후 상태별 처리 ...
+      case 11:  // 좌측(1번 경유로) 장애물 검사하기 위해 우회전
+        turnRight90Deg();  // 우회전 후에 정면을 바라보도록
+        runState = 12;  // 약간 전진(시간차 정지 후 거리 측정)
+        // TickStart = millis(); // POWER가 켜진 후 경과 시간(ms)
+        break;
+      case 13: // 우측 경유로로 가기 위해 뒤돌아 가다 정지선
+        turnLeft90Deg();
+        runState = 14;  // 우측(3번) 경유로로 이동시작
+        break;
+      case 14:  // 우측(3번) 경유로 장애물 검사하러 중앙선 통과
+        runState = 15; // 우측 장애물 검사하러 전진
+        moveForward(DEFAULT_SPEED);
+        delay(SKIP_LINE_DURATION);
+        break;
+      case 15:  // 우측 장애물 검사는 생략 (마지막 남은 경유로)
+        turnLeft90Deg();
+        runState = 103; // 우측 경유로 진입하여 전진
+        break;  
+      case 101: // 좌측 경유로 통과
+        turnRight90Deg();
+        runState = 111; // 우회전하여 목표지점으로 전진
+        break;  
+      case 102: // 중앙 경유로 통과
+        moveForward(DEFAULT_SPEED);
+        delay(DEFAULT_SPEED);
+        runState = 201; // 목표지점으로 전진
+        break;  
+      case 103: // 우측 경유로 통과
+        turnLeft90Deg();
+        runState = 113; // 좌회전하여 목표지점으로 전진
+        break;  
+      case 111: // 좌측 경유 목표지점 진입 교차로 도달
+        turnLeft90Deg();
+        runState = 201; // 좌회전하여 목표지점으로 전진
+        break;  
+      case 113: // 우측 경유 목표지점 진입 교차로 도달
+        turnRight90Deg();
+        runState = 201; // 우회전하여 목표지점으로 전진
+        break;
+      case 201: // 중간 목표지점 도착 전진
+        stopMotors();
+        liftUp();
+  
+        tone(BUZZER_PIN, 262);  // 도(4옥타브 C)
+        delay(100);
+        tone(BUZZER_PIN, 330);  // 미(4옥타브 E)
+        delay(100);
+        tone(BUZZER_PIN, 392);  // 솔(4옥타브 G)
+        delay(250);
+        noTone(BUZZER_PIN);     // 음소거(mute)
+        
+        delay(2000);  // 팔레트(화물) 싣는 시간
+  
+        runState = 203;  // 뒤돌아 홈으로 출발
+        
+        turnLeft180Deg(true); // (정지선에서) 살짝 후진하고 회전
+        break;
+  
+      case 203: // 올때 선택한 경로에 따라서 되돌아갈 방향 선택
+        if(selectedPath == 1) // 좌측 경유로
+        {
+          runState = 301;  // 좌측 경유로 따라서 귀환
+          turnRight90Deg();
+        }
+        else if(selectedPath == 3) // 우측 경유로
+        {
+          runState = 401;  // 우측 경유로 따라서 귀환
+          turnLeft90Deg();
+        }
+        else // SelectedPath == 2, 중앙 경유로로 직진
+        {
+          runState = 204;  // 교차로를 지나 중앙으로 귀환
+          moveForward(DEFAULT_SPEED);
+          delay(SKIP_LINE_DURATION);
+        }
+        break;        
+      case 204: // 귀환 중 중앙 경유로 통과
+        runState = 501;  // 귀환 진입
+        moveForward(DEFAULT_SPEED);
+        delay(SKIP_LINE_DURATION);
+        break;
+      case 301: // 귀환 중 좌측 경유로 진입
+        runState = 302;  // 좌측 경유
+        turnLeft90Deg();
+        break;  
+      case 302: // 귀환 중 좌측 경유로 통과
+        runState = 303;  // 좌측 경유
+        turnLeft90Deg();
+        break;  
+      case 303: // 귀환 중 (좌측 경유로 통과 후) 좌측 진입
+        runState = 501;  // 귀환 진입
+        turnRight90Deg();
+        break;  
+      case 401: // 귀환 중 우측 경유로 진입
+        runState = 402;  // 우측 경유
+        turnRight90Deg();
+        break;  
+      case 402: // 귀환 중 우측 경유로 통과
+        runState = 403;  // 우측 경유
+        turnRight90Deg();
+        break;  
+      case 403: // 귀환 중 (우측 경유로 통과 후) 우측 진입
+        runState = 501;  // 귀환 진입
+        turnLeft90Deg();
+        break;  
+      case 501: // A지점 정지선 도착 후 화물 내리고 180도 회전
+        stopMotors();
+  
+        liftDown(); // 리프터를 아래로 내림 xxx
+  
+        tone(BUZZER_PIN, 392);  // 솔(4옥타브 G)
+        delay( 150 );
+        tone( BUZZER_PIN, 330 );  // 미(4옥타브 E)
+        delay( 150 );
+        tone( BUZZER_PIN, 262 );  // 도(4옥타브 C)
+        delay( 250 );
+        noTone( BUZZER_PIN );     // 음소거(mute)
+        
+        delay( 2000 ); // 팔레트(화물) 내리는 시간
+  
+        runState = 999;  // 다시 출발 대기 상태로 위치
+        
+        turnLeft180Deg(true); // (정지선에서) 살짝 후진하고 회전
+        break;
+      case 999: // (최종 180도 회전 후) 약간 후진 후 정지
+        stopMotors(); // 정지
+        driveMotors(DIR_BACKWARD, DEFAULT_SPEED - 10, DIR_BACKWARD, DEFAULT_SPEED - 10);
+        delay( 160 );
+        stopMotors(); // 완료 정지
+  
+        tone( BUZZER_PIN, 330 );  // 미(4옥타브 E)
+        delay( 100 );
+        tone( BUZZER_PIN, 262 );  // 도(4옥타브 C)
+        delay( 250 );
+        noTone( BUZZER_PIN );     // 음소거(mute)
+    
+        runState = 0;  // 출발 대기
+        break;
+      }
     }
-  }
   else if(v1>IR_THRESHOLD_BLACK) turnLeft(DEFAULT_SPEED);
   else if(v2>IR_THRESHOLD_BLACK) turnRight(DEFAULT_SPEED);
   else moveForward(DEFAULT_SPEED);
@@ -210,9 +346,10 @@ void loop() {
         delay(INTERSECTION_WAIT);
         if(analogRead(IR_PIN_FRONT_CENTER)<OBSTACLE_THRESHOLD) {
           selectedPath=3; runState=13;
-          turnLeft180Deg(false);
+          turnLeft180Deg(false); 
         } else {
-          selectedPath=1; runState=101;
+          selectedPath=1; 
+          runState=101;
           moveForward(DEFAULT_SPEED);
         }
       }

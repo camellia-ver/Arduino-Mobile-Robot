@@ -1,66 +1,30 @@
 /**
  * @file    MyAGVProject.ino
- * @brief   AGV 로봇 메인 코드 – 라이브러리 포함 및 핀 정의
+ * @brief   AGV 로봇 메인 코드
  */
 
- #include <SPI.h>               ///< SPI 통신을 위한 표준 라이브러리
- #include <MFRC522.h>           ///< RFID 리더용 라이브러리
- #include <MFRC522Extended.h>   ///< RFID 확장 기능 (필요 시)
- #include <Servo.h>             ///< 서보 모터 제어 라이브러리
+#include <SPI.h>               ///< SPI 통신을 위한 표준 라이브러리
+#include <MFRC522.h>           ///< RFID 리더용 라이브러리
+#include <MFRC522Extended.h>   ///< RFID 확장 기능 (필요 시)
+#include <Servo.h>             ///< 서보 모터 제어 라이브러리
  
- /** @def RFID_SS_PIN
-  *  @brief RFID 리더기 SS(Slave Select) 핀 번호 */
- #define RFID_SS_PIN        2
+#define RFID_SS_PIN        2  // RFID 리더기 SS(Slave Select) 핀 번호
+#define RFID_RST_PIN       4  // RFID 리더기 RESET 핀 번호
  
- /** @def RFID_RST_PIN
-  *  @brief RFID 리더기 RESET 핀 번호 */
- #define RFID_RST_PIN       4
- 
- /** @def BUZZER_PIN
-  *  @brief 부저 출력 핀 번호 */
- #define BUZZER_PIN         3
- 
- /** @def BUTTON_PIN
-  *  @brief 동작 시작용 버튼 핀 번호 */
- #define BUTTON_PIN         A3
- 
- /** @def SERVO_PIN
-  *  @brief 리프터(서보) 모터 제어 핀 번호 */
- #define SERVO_PIN          9
- 
- /** @def MOTOR_LEFT_DIR_PIN
-  *  @brief 왼쪽 모터 방향 제어 핀 */
- #define MOTOR_LEFT_DIR_PIN 7
- /** @def MOTOR_LEFT_PWM_PIN
-  *  @brief 왼쪽 모터 속도(PWM) 제어 핀 */
- #define MOTOR_LEFT_PWM_PIN 5
- 
- /** @def MOTOR_RIGHT_DIR_PIN
-  *  @brief 오른쪽 모터 방향 제어 핀 */
- #define MOTOR_RIGHT_DIR_PIN 8
- /** @def MOTOR_RIGHT_PWM_PIN
-  *  @brief 오른쪽 모터 속도(PWM) 제어 핀 */
- #define MOTOR_RIGHT_PWM_PIN 6
+#define BUZZER_PIN         3  // 부저 출력 핀 번호
 
- #define DIRECTION_FORWARD     0 // 전진 방향
+#define SERVO_PIN          9  // 리프터(서보) 모터 제어 핀 번호
+ 
+#define MOTOR_LEFT_DIR_PIN 7  // 왼쪽 모터 방향 제어 핀
+#define MOTOR_LEFT_PWM_PIN 5  // 왼쪽 모터 속도(PWM) 제어 핀
+#define MOTOR_RIGHT_DIR_PIN 8 // 오른쪽 모터 방향 제어 핀
+#define MOTOR_RIGHT_PWM_PIN 6 // 오른쪽 모터 속도(PWM) 제어 핀
+
+#define DIRECTION_FORWARD     0 // 전진 방향
 #define DIRECTION_BACKWARD    1 // 후진 방향
  
- /** @def IR_SENSOR_LEFT_PIN
-  *  @brief 라인 트레이싱용 왼쪽 IR 센서 핀 */
- #define IR_SENSOR_LEFT_PIN    A6
- /** @def IR_SENSOR_RIGHT_PIN
-  *  @brief 라인 트레이싱용 오른쪽 IR 센서 핀 */
- #define IR_SENSOR_RIGHT_PIN   A7
- 
- /** @def IR_SENSOR_FRONT_LEFT_PIN
-  *  @brief 전방 장애물 감지용 왼쪽 IR 센서 핀 */
- #define IR_SENSOR_FRONT_LEFT_PIN   A0
- /** @def IR_SENSOR_FRONT_CENTER_PIN
-  *  @brief 전방 장애물 감지용 중앙 IR 센서 핀 */
- #define IR_SENSOR_FRONT_CENTER_PIN A1
- /** @def IR_SENSOR_FRONT_RIGHT_PIN
-  *  @brief 전방 장애물 감지용 오른쪽 IR 센서 핀 */
- #define IR_SENSOR_FRONT_RIGHT_PIN  A2
+#define IR_SENSOR_LEFT_PIN    A6  // 라인 트레이싱용 왼쪽 IR 센서 핀
+#define IR_SENSOR_RIGHT_PIN   A7  // 라인 트레이싱용 오른쪽 IR 센서 핀
 
  // 색상 판단: White=[0..410] .. 560 .. [710..1023]=Black
 // #define LINE_TRACE_ADJUST         60  // 현재 젤리비의 센서 측정 조정값
@@ -68,28 +32,9 @@
 // #define MID_THRESHOLD             (560 + LINE_TRACE_ADJUST) // 흑백 판단 경계값(중간값)
 // #define MIN_BLACK_THRESHOLD       (710 + LINE_TRACE_ADJUST) // 검은색으로 판단하는 최소값
 
-/** 
- * @file    threshold_config.ino
- * @brief   라인트레이싱용 IR 센서 임계치 재설정
- * @details
- *  - 흰색 측정값 범위: 347 ~ 363  
- *  - 검정 측정값 범위: 948 ~ 959  
- *  - 두 값 사이 중앙값(≈655)을 기준으로, 안전 마진을 둔 임계치 설정  
- */
-
-/** 
- * @brief 흰색 최대값 (측정된 흰값 최대363 + 마진60)
- */
-#define MAX_WHITE_THRESHOLD  420  
-
-/// @brief 흑백 구분 중심 임계값 (흰값 + 검정값)/2 ≈ 655
-#define MID_THRESHOLD          650  
-
-/** 
- * @brief 검정 최소값 (측정된 검정값 최소948 - 마진68)
- */
-#define MIN_BLACK_THRESHOLD  880  
-
+#define MAX_WHITE_THRESHOLD    420  // 흰색 최대값 (측정된 흰값 최대363 + 마진60)
+#define MID_THRESHOLD          650  // 흑백 구분 중심 임계값 (흰값 + 검정값)/2 ≈ 655
+#define MIN_BLACK_THRESHOLD    900  // 검정으로 판단할 최소 아날로그 값 (측정된 검정값 최소 948 – 마진 48)
 
 #define SERVO_POSITION_DOWN    (90 - 40)   // Down 위치, 각 로봇에 맞도록 [-50 .. -10] 범위에서 조정하세요.
 #define SERVO_POSITION_UP      (180 - 10)  // Up 위치 (떨림 방지)
@@ -103,60 +48,47 @@
  */
 #define UID_BUFFER_SIZE 21
 
-int obstacleDistance = 1005;        // 장애물 존재 여부 판단 최대 거리값
 int defaultPower = 80;
 
- enum Direction { NORTH=0, EAST, SOUTH, WEST };
- Direction currentDir = NORTH;
+enum Direction { NORTH=0, EAST, SOUTH, WEST };
+Direction currentDir = NORTH;
  
- void turnTo(Direction targetDir) {
-     uint8_t diff = (targetDir - currentDir + 4) % 4;
-     if      (diff == 1)  turnRight90Degrees();
-     else if (diff == 2)  turnAround180Degrees(false);
-     else if (diff == 3)  turnLeft90Degrees();
-     currentDir = targetDir;
- }
+void turnTo(Direction targetDir) {
+    uint8_t diff = (targetDir - currentDir + 4) % 4;
+    if      (diff == 1)  turnRight90Degrees();
+    else if (diff == 2)  turnAround180Degrees(false);
+    else if (diff == 3)  turnLeft90Degrees();
+    currentDir = targetDir;
+}
  
- void turnToNorth(){ turnTo(NORTH); }
- void turnToEast() { turnTo(EAST); }
- void turnToSouth(){ turnTo(SOUTH); }
- void turnToWest() { turnTo(WEST); }
+void turnToNorth(){ turnTo(NORTH); }
+void turnToEast() { turnTo(EAST); }
+void turnToSouth(){ turnTo(SOUTH); }
+void turnToWest() { turnTo(WEST); }
  
- const bool gridMap[8][8] = {
-     {1,1,1,1,0,0,0,0},
-     {1,0,1,1,0,1,1,0},
-     // … 나머지 맵 …
- };
- 
- bool atIntersection() {
-     const uint8_t samples=5;
-     uint8_t stable=0;
-     for(uint8_t i=0;i<samples;i++){
-         int lv=analogRead(IR_SENSOR_LEFT_PIN);
-         int rv=analogRead(IR_SENSOR_RIGHT_PIN);
-         if(lv>MIN_BLACK_THRESHOLD && rv>MIN_BLACK_THRESHOLD) stable++;
-         delay(5);
-     }
-     return (stable==samples);
- }
+const bool gridMap[8][8] = {
+    {0,1,1,1,0,0,0,0},
+    {0,0,1,0,0,1,1,0},
+    {0,0,1,1,0,0,1,0},
+    {0,0,1,1,0,0,1,0},
+    {0,0,0,0,0,0,0,0},
+    {0,0,1,0,0,1,0,0},
+    {0,0,1,1,0,1,0,0},
+    {0,0,1,1,0,1,1,0},
+};
 
- MFRC522 rfidReader(RFID_SS_PIN, RFID_RST_PIN);
- Servo lifterServo; 
+MFRC522 rfidReader(RFID_SS_PIN, RFID_RST_PIN);
+Servo lifterServo; 
 
 /**
- * @brief AGV의 현재 X 좌표 (0~7)
+ * @brief AGV의 현재 X,Y 좌표 (0~7)
  */
-uint8_t currentX = 0;
+uint8_t currentX = 0, currentY = 0;
 
 /**
- * @brief AGV의 현재 Y 좌표 (0~7)
- */
-uint8_t currentY = 0;
-
- /**
- * @brief 하드웨어 초기화
- * @details 각종 핀 모드 설정, 시리얼 통신, SPI, RFID 초기화 및 리프터 기본 위치 설정
- */
+* @brief 하드웨어 초기화
+* @details 각종 핀 모드 설정, 시리얼 통신, SPI, RFID 초기화 및 리프터 기본 위치 설정
+*/
 void setup() {
   // 모터 핀 초기화
   pinMode(MOTOR_LEFT_DIR_PIN, OUTPUT);
@@ -168,15 +100,9 @@ void setup() {
   pinMode(BUZZER_PIN, OUTPUT);
   noTone(BUZZER_PIN);  // 초기 상태로 소리 없음
 
-  // 버튼 초기화 (풀업 사용)
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-
   // IR 센서(아날로그 입력) 초기화
   pinMode(IR_SENSOR_LEFT_PIN, INPUT);
   pinMode(IR_SENSOR_RIGHT_PIN, INPUT);
-  pinMode(IR_SENSOR_FRONT_LEFT_PIN, INPUT);
-  pinMode(IR_SENSOR_FRONT_CENTER_PIN, INPUT);
-  pinMode(IR_SENSOR_FRONT_RIGHT_PIN, INPUT);
 
   // 시리얼 통신 시작
   Serial.begin(9600);
@@ -318,97 +244,50 @@ void readLineSensors(int &leftValue, int &rightValue) {
 }
 
 /**
-* @brief 전방 중앙 IR 센서로 장애물 감지
-* @return 장애물 감지 시 true 반환
+* @brief 단순 라인 트레이싱 동작
+* @param power 모터 속도 (0~255)
+* @details 중앙 교차로, 장애물 우회 등 복잡 로직 제외한 기본 라인 트레이스
 */
-bool isObstacleDetected() {
-  int frontValue = analogRead(IR_SENSOR_FRONT_CENTER_PIN);
-  return (frontValue < obstacleDistance);
-}
-
-/**
- * @brief 아날로그 값을 여러 샘플링해서 평균 반환
- * @param pin     읽을 아날로그 핀
- * @param count   샘플 개수
- * @return 평균값 (0~1023)
- */
-int readSmoothed(uint8_t pin, uint8_t count = 5) {
-  long sum = 0;
-  for (uint8_t i = 0; i < count; i++) {
-      sum += analogRead(pin);
-      delay(2);
-  }
-  return sum / count;
-}
-
-/**
- * @brief 부드러운 라인트레이싱 조향
- * @param power 기본 모터 속도 (0~255)
- */
 void simpleLineTrace(int power) {
-  // 1) 센서 값 스무딩 읽기
-  int lv = readSmoothed(IR_SENSOR_LEFT_PIN);
-  int rv = readSmoothed(IR_SENSOR_RIGHT_PIN);
+  int leftValue, rightValue;
+  readLineSensors(leftValue, rightValue);
 
-  // 2) 디버그 출력
-  Serial.print("L="); Serial.print(lv);
-  Serial.print(" R="); Serial.print(rv);
-
-  // 3) 조건별 모터 제어
-  if (lv < MAX_WHITE_THRESHOLD && rv < MAX_WHITE_THRESHOLD) {
-      // 흰색: 양쪽 전진
-      driveMotors(DIRECTION_FORWARD, power, DIRECTION_FORWARD, power);
-      Serial.println(" -> Forward");
+  // 양쪽 센서 모두 흰색: 전진
+  if (leftValue < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
+      moveForward(power);
   }
-  else if (lv > MIN_BLACK_THRESHOLD) {
-      // 왼쪽 센서가 검정: 우회전 (왼쪽 모터 정지)
-      driveMotors(DIRECTION_FORWARD,   0,   // 왼쪽 정지
-                  DIRECTION_BACKWARD, power); // 오른쪽 역회전
-      Serial.println(" -> Steer Right");
+  // 왼쪽만 검정: 왼쪽으로 벗어났으므로 우회전
+  else if (leftValue > MIN_BLACK_THRESHOLD) {
+      turnRight(power);
   }
-  else if (rv > MIN_BLACK_THRESHOLD) {
-      // 오른쪽 센서가 검정: 좌회전 (오른쪽 모터 정지)
-      driveMotors(DIRECTION_BACKWARD, power,  // 왼쪽 역회전
-                  DIRECTION_FORWARD,  0);    // 오른쪽 정지
-      Serial.println(" -> Steer Left");
+  // 오른쪽만 검정: 오른쪽으로 벗어났으므로 좌회전
+  else if (rightValue > MIN_BLACK_THRESHOLD) {
+      turnLeft(power);
   }
+  // 그 외: 전진
   else {
-      // 중간값: 그대로 전진
-      driveMotors(DIRECTION_FORWARD, power, DIRECTION_FORWARD, power);
-      Serial.println(" -> Forward");
+      moveForward(power);
   }
 }
 
-
-// /**
-// * @brief 단순 라인 트레이싱 동작
-// * @param power 모터 속도 (0~255)
-// * @details 중앙 교차로, 장애물 우회 등 복잡 로직 제외한 기본 라인 트레이스
-// */
-// void simpleLineTrace(int power) {
-//   int leftValue, rightValue;
-//   readLineSensors(leftValue, rightValue);
-
-//   // 양쪽 센서 모두 흰색: 전진
-//   if (leftValue < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
-//       moveForward(power);
-//   }
-//   // 왼쪽만 검정: 왼쪽으로 벗어났으므로 우회전
-//   else if (leftValue > MIN_BLACK_THRESHOLD) {
-//       turnRight(power);
-//   }
-//   // 오른쪽만 검정: 오른쪽으로 벗어났으므로 좌회전
-//   else if (rightValue > MIN_BLACK_THRESHOLD) {
-//       turnLeft(power);
-//   }
-//   // 그 외: 전진
-//   else {
-//       moveForward(power);
-//   }
-// }
+/**
+* @brief 교차로(정지선) 감지, 정확하고 안정적
+* @return 교차로(양쪽 센서 모두 검정) 감지 시 true 반환
+*/
+bool atIntersection() {
+  const uint8_t samples=5;
+  uint8_t stable=0;
+  for(uint8_t i=0;i<samples;i++){
+      int lv=analogRead(IR_SENSOR_LEFT_PIN);
+      int rv=analogRead(IR_SENSOR_RIGHT_PIN);
+      if(lv>MIN_BLACK_THRESHOLD && rv>MIN_BLACK_THRESHOLD) stable++;
+      delay(5);
+  }
+  return (stable==samples);
+}
 
 /**
-* @brief 교차로(정지선) 감지
+* @brief 교차로(정지선) 감지, 빠른 응답
 * @return 교차로(양쪽 센서 모두 검정) 감지 시 true 반환
 */
 bool isIntersection() {
@@ -424,22 +303,27 @@ bool isIntersection() {
 void turnLeft90Degrees() {
   stopMotors();
   delay(50);
+
   // 초기 위치 보정 후
   driveMotors(DIRECTION_BACKWARD, 80, DIRECTION_BACKWARD, 80);
   delay(20);
   stopMotors();
   delay(50);
+
   // 첫 번째 화이트 라인 감지
   turnLeft(100);
   while (analogRead(IR_SENSOR_LEFT_PIN) < MAX_WHITE_THRESHOLD) delay(1);
   delay(40);
+
   // 두 번째 블랙 라인 감지
   turnLeft(100);
   while (analogRead(IR_SENSOR_LEFT_PIN) > MIN_BLACK_THRESHOLD) delay(1);
   delay(40);
+
   // 직진으로 마무리
   moveForward(defaultPower);
   delay(90);
+
   // 정위치 보정 턴
   turnLeft(100);
   delay(250);
@@ -457,17 +341,21 @@ void turnRight90Degrees() {
   delay(20);
   stopMotors();
   delay(50);
+
   // 첫 번째 화이트 라인 감지
   turnRight(100);
   while (analogRead(IR_SENSOR_RIGHT_PIN) < MAX_WHITE_THRESHOLD) delay(1);
   delay(40);
+
   // 두 번째 블랙 라인 감지
   turnRight(100);
   while (analogRead(IR_SENSOR_RIGHT_PIN) > MIN_BLACK_THRESHOLD) delay(1);
   delay(40);
+
   // 직진으로 마무리
   moveForward(defaultPower);
   delay(90);
+
   // 정위치 보정 턴
   turnRight(100);
   delay(250);
@@ -493,12 +381,14 @@ void turnAround180Degrees(bool backOnStopLine) {
       stopMotors();
       delay(50);
   }
+
   // 중앙 라인 기준 회전
   driveMotors(DIRECTION_BACKWARD, 100, DIRECTION_FORWARD, 100);
   while (analogRead(IR_SENSOR_LEFT_PIN) < MIN_BLACK_THRESHOLD) delay(1);
   delay(30);
   driveMotors(DIRECTION_BACKWARD, 90, DIRECTION_FORWARD, 90);
   while (analogRead(IR_SENSOR_LEFT_PIN) > MAX_WHITE_THRESHOLD) delay(1);
+  
   // 회전 후 전진 복귀
   moveForward(defaultPower);
 }
@@ -573,7 +463,9 @@ bool readCoordinatesFromRFID(uint8_t &x, uint8_t &y) {
 
   // UID를 16진수 문자열로 변환
   char uidStr[UID_BUFFER_SIZE];
-  uidToHexString(rfidReader.uid.uidByte,rfidReader.uid.size,uidStr);
+  uidToHexString(rfidReader.uid.uidByte,
+                 rfidReader.uid.size,
+                 uidStr);
 
   // 매핑 테이블에서 좌표 검색
   if (getCoordinatesFromUID(uidStr, x, y)) {
@@ -725,64 +617,63 @@ void moveOneCell(Direction dir) {
 * @brief 메인 루프: 상태 머신으로 AGV 동작 제어
 */
 void loop() {
-  simpleLineTrace(defaultPower);
-  // switch (runState) {
+  switch (runState) {
 
-  //     case STATE_IDLE:
-  //         // RFID 카드 태깅 대기
-  //         if (readCoordinatesFromRFID(coordAX, coordAY)) {
-  //             // 태깅 확인음
-  //             tone(BUZZER_PIN, 262); delay(100);
-  //             tone(BUZZER_PIN, 330); delay(250);
-  //             noTone(BUZZER_PIN);
-  //             runState = STATE_MOVE_TO_A;
-  //         }
-  //         break;
+      case STATE_IDLE:
+          // RFID 카드 태깅 대기
+          if (readCoordinatesFromRFID(coordAX, coordAY)) {
+              // 태깅 확인음
+              tone(BUZZER_PIN, 262); delay(100);
+              tone(BUZZER_PIN, 330); delay(250);
+              noTone(BUZZER_PIN);
+              runState = STATE_MOVE_TO_A;
+          }
+          break;
 
-  //     case STATE_MOVE_TO_A:
-  //         // A 지점으로 이동
-  //         navigateTo(coordAX, coordAY);
-  //         stopMotors();
-  //         runState = STATE_PICKUP;
-  //         break;
+      case STATE_MOVE_TO_A:
+          // A 지점으로 이동
+          navigateTo(coordAX, coordAY);
+          stopMotors();
+          runState = STATE_PICKUP;
+          break;
 
-  //     case STATE_PICKUP:
-  //         // B 지점 좌표 재읽기
-  //         if (readCoordinatesFromRFID(coordBX, coordBY)) {
-  //             raiseLifter();
-  //             playPickupTone();
-  //             runState = STATE_MOVE_TO_B;
-  //         } else {
-  //             // UID 미등록 시 대기 상태 복귀
-  //             runState = STATE_IDLE;
-  //         }
-  //         break;
+      case STATE_PICKUP:
+          // B 지점 좌표 재읽기
+          if (readCoordinatesFromRFID(coordBX, coordBY)) {
+              raiseLifter();
+              playPickupTone();
+              runState = STATE_MOVE_TO_B;
+          } else {
+              // UID 미등록 시 대기 상태 복귀
+              runState = STATE_IDLE;
+          }
+          break;
 
-  //     case STATE_MOVE_TO_B:
-  //         // B 지점으로 이동
-  //         navigateTo(coordBX, coordBY);
-  //         stopMotors();
-  //         runState = STATE_DROPOFF;
-  //         break;
+      case STATE_MOVE_TO_B:
+          // B 지점으로 이동
+          navigateTo(coordBX, coordBY);
+          stopMotors();
+          runState = STATE_DROPOFF;
+          break;
 
-  //     case STATE_DROPOFF:
-  //         // 물건 하강 및 알림음
-  //         lowerLifter();
-  //         playDropTone();
-  //         runState = STATE_RETURN;
-  //         break;
+      case STATE_DROPOFF:
+          // 물건 하강 및 알림음
+          lowerLifter();
+          playDropTone();
+          runState = STATE_RETURN;
+          break;
 
-  //     case STATE_RETURN:
-  //         // A 지점으로 복귀
-  //         navigateTo(coordAX, coordAY);
-  //         stopMotors();
-  //         runState = STATE_IDLE;
-  //         break;
+      case STATE_RETURN:
+          // A 지점으로 복귀
+          navigateTo(coordAX, coordAY);
+          stopMotors();
+          runState = STATE_IDLE;
+          break;
 
-  //     default:
-  //         // 예기치 않은 상태는 초기화
-  //         runState = STATE_IDLE;
-  //         break;
-  // }
-  // delay(100);
+      default:
+          // 예기치 않은 상태는 초기화
+          runState = STATE_IDLE;
+          break;
+  }
+  delay(100);
 }

@@ -63,10 +63,33 @@
  #define IR_SENSOR_FRONT_RIGHT_PIN  A2
 
  // 색상 판단: White=[0..410] .. 560 .. [710..1023]=Black
-#define LINE_TRACE_ADJUST         60  // 현재 젤리비의 센서 측정 조정값
-#define MAX_WHITE_THRESHOLD       (410 + LINE_TRACE_ADJUST) // 흰색으로 판단하는 최대값
-#define MID_THRESHOLD             (560 + LINE_TRACE_ADJUST) // 흑백 판단 경계값(중간값)
-#define MIN_BLACK_THRESHOLD       (710 + LINE_TRACE_ADJUST) // 검은색으로 판단하는 최소값
+// #define LINE_TRACE_ADJUST         60  // 현재 젤리비의 센서 측정 조정값
+// #define MAX_WHITE_THRESHOLD       (410 + LINE_TRACE_ADJUST) // 흰색으로 판단하는 최대값
+// #define MID_THRESHOLD             (560 + LINE_TRACE_ADJUST) // 흑백 판단 경계값(중간값)
+// #define MIN_BLACK_THRESHOLD       (710 + LINE_TRACE_ADJUST) // 검은색으로 판단하는 최소값
+
+/** 
+ * @file    threshold_config.ino
+ * @brief   라인트레이싱용 IR 센서 임계치 재설정
+ * @details
+ *  - 흰색 측정값 범위: 347 ~ 363  
+ *  - 검정 측정값 범위: 948 ~ 959  
+ *  - 두 값 사이 중앙값(≈655)을 기준으로, 안전 마진을 둔 임계치 설정  
+ */
+
+/** 
+ * @brief 흰색 최대값 (측정된 흰값 최대363 + 마진60)
+ */
+#define MAX_WHITE_THRESHOLD  420  
+
+/// @brief 흑백 구분 중심 임계값 (흰값 + 검정값)/2 ≈ 655
+#define MID_THRESHOLD          650  
+
+/** 
+ * @brief 검정 최소값 (측정된 검정값 최소948 - 마진68)
+ */
+#define MIN_BLACK_THRESHOLD  880  
+
 
 #define SERVO_POSITION_DOWN    (90 - 40)   // Down 위치, 각 로봇에 맞도록 [-50 .. -10] 범위에서 조정하세요.
 #define SERVO_POSITION_UP      (180 - 10)  // Up 위치 (떨림 방지)
@@ -304,31 +327,85 @@ bool isObstacleDetected() {
 }
 
 /**
-* @brief 단순 라인 트레이싱 동작
-* @param power 모터 속도 (0~255)
-* @details 중앙 교차로, 장애물 우회 등 복잡 로직 제외한 기본 라인 트레이스
-*/
-void simpleLineTrace(int power) {
-  int leftValue, rightValue;
-  readLineSensors(leftValue, rightValue);
+ * @brief 아날로그 값을 여러 샘플링해서 평균 반환
+ * @param pin     읽을 아날로그 핀
+ * @param count   샘플 개수
+ * @return 평균값 (0~1023)
+ */
+int readSmoothed(uint8_t pin, uint8_t count = 5) {
+  long sum = 0;
+  for (uint8_t i = 0; i < count; i++) {
+      sum += analogRead(pin);
+      delay(2);
+  }
+  return sum / count;
+}
 
-  // 양쪽 센서 모두 흰색: 전진
-  if (leftValue < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
-      moveForward(power);
+/**
+ * @brief 부드러운 라인트레이싱 조향
+ * @param power 기본 모터 속도 (0~255)
+ */
+void simpleLineTrace(int power) {
+  // 1) 센서 값 스무딩 읽기
+  int lv = readSmoothed(IR_SENSOR_LEFT_PIN);
+  int rv = readSmoothed(IR_SENSOR_RIGHT_PIN);
+
+  // 2) 디버그 출력
+  Serial.print("L="); Serial.print(lv);
+  Serial.print(" R="); Serial.print(rv);
+
+  // 3) 조건별 모터 제어
+  if (lv < MAX_WHITE_THRESHOLD && rv < MAX_WHITE_THRESHOLD) {
+      // 흰색: 양쪽 전진
+      driveMotors(DIRECTION_FORWARD, power, DIRECTION_FORWARD, power);
+      Serial.println(" -> Forward");
   }
-  // 왼쪽만 검정: 왼쪽으로 벗어났으므로 우회전
-  else if (leftValue > MIN_BLACK_THRESHOLD) {
-      turnRight(power);
+  else if (lv > MIN_BLACK_THRESHOLD) {
+      // 왼쪽 센서가 검정: 우회전 (왼쪽 모터 정지)
+      driveMotors(DIRECTION_FORWARD,   0,   // 왼쪽 정지
+                  DIRECTION_BACKWARD, power); // 오른쪽 역회전
+      Serial.println(" -> Steer Right");
   }
-  // 오른쪽만 검정: 오른쪽으로 벗어났으므로 좌회전
-  else if (rightValue > MIN_BLACK_THRESHOLD) {
-      turnLeft(power);
+  else if (rv > MIN_BLACK_THRESHOLD) {
+      // 오른쪽 센서가 검정: 좌회전 (오른쪽 모터 정지)
+      driveMotors(DIRECTION_BACKWARD, power,  // 왼쪽 역회전
+                  DIRECTION_FORWARD,  0);    // 오른쪽 정지
+      Serial.println(" -> Steer Left");
   }
-  // 그 외: 전진
   else {
-      moveForward(power);
+      // 중간값: 그대로 전진
+      driveMotors(DIRECTION_FORWARD, power, DIRECTION_FORWARD, power);
+      Serial.println(" -> Forward");
   }
 }
+
+
+// /**
+// * @brief 단순 라인 트레이싱 동작
+// * @param power 모터 속도 (0~255)
+// * @details 중앙 교차로, 장애물 우회 등 복잡 로직 제외한 기본 라인 트레이스
+// */
+// void simpleLineTrace(int power) {
+//   int leftValue, rightValue;
+//   readLineSensors(leftValue, rightValue);
+
+//   // 양쪽 센서 모두 흰색: 전진
+//   if (leftValue < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
+//       moveForward(power);
+//   }
+//   // 왼쪽만 검정: 왼쪽으로 벗어났으므로 우회전
+//   else if (leftValue > MIN_BLACK_THRESHOLD) {
+//       turnRight(power);
+//   }
+//   // 오른쪽만 검정: 오른쪽으로 벗어났으므로 좌회전
+//   else if (rightValue > MIN_BLACK_THRESHOLD) {
+//       turnLeft(power);
+//   }
+//   // 그 외: 전진
+//   else {
+//       moveForward(power);
+//   }
+// }
 
 /**
 * @brief 교차로(정지선) 감지
@@ -496,9 +573,7 @@ bool readCoordinatesFromRFID(uint8_t &x, uint8_t &y) {
 
   // UID를 16진수 문자열로 변환
   char uidStr[UID_BUFFER_SIZE];
-  uidToHexString(rfidReader.uid.uidByte,
-                 rfidReader.uid.size,
-                 uidStr);
+  uidToHexString(rfidReader.uid.uidByte,rfidReader.uid.size,uidStr);
 
   // 매핑 테이블에서 좌표 검색
   if (getCoordinatesFromUID(uidStr, x, y)) {
@@ -650,63 +725,64 @@ void moveOneCell(Direction dir) {
 * @brief 메인 루프: 상태 머신으로 AGV 동작 제어
 */
 void loop() {
-  switch (runState) {
+  simpleLineTrace(defaultPower);
+  // switch (runState) {
 
-      case STATE_IDLE:
-          // RFID 카드 태깅 대기
-          if (readCoordinatesFromRFID(coordAX, coordAY)) {
-              // 태깅 확인음
-              tone(BUZZER_PIN, 262); delay(100);
-              tone(BUZZER_PIN, 330); delay(250);
-              noTone(BUZZER_PIN);
-              runState = STATE_MOVE_TO_A;
-          }
-          break;
+  //     case STATE_IDLE:
+  //         // RFID 카드 태깅 대기
+  //         if (readCoordinatesFromRFID(coordAX, coordAY)) {
+  //             // 태깅 확인음
+  //             tone(BUZZER_PIN, 262); delay(100);
+  //             tone(BUZZER_PIN, 330); delay(250);
+  //             noTone(BUZZER_PIN);
+  //             runState = STATE_MOVE_TO_A;
+  //         }
+  //         break;
 
-      case STATE_MOVE_TO_A:
-          // A 지점으로 이동
-          navigateTo(coordAX, coordAY);
-          stopMotors();
-          runState = STATE_PICKUP;
-          break;
+  //     case STATE_MOVE_TO_A:
+  //         // A 지점으로 이동
+  //         navigateTo(coordAX, coordAY);
+  //         stopMotors();
+  //         runState = STATE_PICKUP;
+  //         break;
 
-      case STATE_PICKUP:
-          // B 지점 좌표 재읽기
-          if (readCoordinatesFromRFID(coordBX, coordBY)) {
-              raiseLifter();
-              playPickupTone();
-              runState = STATE_MOVE_TO_B;
-          } else {
-              // UID 미등록 시 대기 상태 복귀
-              runState = STATE_IDLE;
-          }
-          break;
+  //     case STATE_PICKUP:
+  //         // B 지점 좌표 재읽기
+  //         if (readCoordinatesFromRFID(coordBX, coordBY)) {
+  //             raiseLifter();
+  //             playPickupTone();
+  //             runState = STATE_MOVE_TO_B;
+  //         } else {
+  //             // UID 미등록 시 대기 상태 복귀
+  //             runState = STATE_IDLE;
+  //         }
+  //         break;
 
-      case STATE_MOVE_TO_B:
-          // B 지점으로 이동
-          navigateTo(coordBX, coordBY);
-          stopMotors();
-          runState = STATE_DROPOFF;
-          break;
+  //     case STATE_MOVE_TO_B:
+  //         // B 지점으로 이동
+  //         navigateTo(coordBX, coordBY);
+  //         stopMotors();
+  //         runState = STATE_DROPOFF;
+  //         break;
 
-      case STATE_DROPOFF:
-          // 물건 하강 및 알림음
-          lowerLifter();
-          playDropTone();
-          runState = STATE_RETURN;
-          break;
+  //     case STATE_DROPOFF:
+  //         // 물건 하강 및 알림음
+  //         lowerLifter();
+  //         playDropTone();
+  //         runState = STATE_RETURN;
+  //         break;
 
-      case STATE_RETURN:
-          // A 지점으로 복귀
-          navigateTo(coordAX, coordAY);
-          stopMotors();
-          runState = STATE_IDLE;
-          break;
+  //     case STATE_RETURN:
+  //         // A 지점으로 복귀
+  //         navigateTo(coordAX, coordAY);
+  //         stopMotors();
+  //         runState = STATE_IDLE;
+  //         break;
 
-      default:
-          // 예기치 않은 상태는 초기화
-          runState = STATE_IDLE;
-          break;
-  }
-  delay(100);
+  //     default:
+  //         // 예기치 않은 상태는 초기화
+  //         runState = STATE_IDLE;
+  //         break;
+  // }
+  // delay(100);
 }

@@ -26,15 +26,11 @@
 #define IR_SENSOR_LEFT_PIN    A6  // 라인 트레이싱용 왼쪽 IR 센서 핀
 #define IR_SENSOR_RIGHT_PIN   A7  // 라인 트레이싱용 오른쪽 IR 센서 핀
 
- // 색상 판단: White=[0..410] .. 560 .. [710..1023]=Black
-// #define LINE_TRACE_ADJUST         60  // 현재 젤리비의 센서 측정 조정값
-// #define MAX_WHITE_THRESHOLD       (410 + LINE_TRACE_ADJUST) // 흰색으로 판단하는 최대값
-// #define MID_THRESHOLD             (560 + LINE_TRACE_ADJUST) // 흑백 판단 경계값(중간값)
-// #define MIN_BLACK_THRESHOLD       (710 + LINE_TRACE_ADJUST) // 검은색으로 판단하는 최소값
-
-#define MAX_WHITE_THRESHOLD    420  // 흰색 최대값 (측정된 흰값 최대363 + 마진60)
-#define MID_THRESHOLD          650  // 흑백 구분 중심 임계값 (흰값 + 검정값)/2 ≈ 655
-#define MIN_BLACK_THRESHOLD    900  // 검정으로 판단할 최소 아날로그 값 (측정된 검정값 최소 948 – 마진 48)
+// 색상 판단: White=[0..410] .. 560 .. [710..1023]=Black
+#define LINE_TRACE_ADJUST       60  // 현재 젤리비의 센서 측정 조정값
+#define MAX_WHITE_THRESHOLD   410 + LINE_TRACE_ADJUST // 흰색으로 판단하는 최대값
+#define MID_THRESHOLD   560 + LINE_TRACE_ADJUST // 흑백 판단 경계값(중간값)
+#define MIN_BLACK_THRESHOLD   710 + LINE_TRACE_ADJUST // 검은색으로 판단하는 최소값
 
 #define SERVO_POSITION_DOWN    (90 - 40)   // Down 위치, 각 로봇에 맞도록 [-50 .. -10] 범위에서 조정하세요.
 #define SERVO_POSITION_UP      (180 - 10)  // Up 위치 (떨림 방지)

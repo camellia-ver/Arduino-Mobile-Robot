@@ -256,8 +256,8 @@ void simpleLineTrace(int power) {
   int leftValue, rightValue;
   readLineSensors(leftValue, rightValue);
 
-   // 1) 양쪽 센서 모두 흰색: 전진
-   if (leftValue  < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
+  // 1) 양쪽 센서 모두 흰색: 전진
+  if (leftValue  < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
     moveForward(power);
   }
   // 2) 회색(gray) 영역: 부드러운 보정
@@ -715,7 +715,29 @@ void moveOneCell(Direction dir) {
  * @param power 회전할 때 사용할 모터 속도 (0~255)
  */
 void alignToLine(int power) {
-    // 수정하기
+  int leftValue, rightValue;
+  readLineSensors(leftValue, rightValue);
+
+  // 1) 회색(gray) 영역: 부드러운 보정
+  if (leftValue  > MAX_WHITE_THRESHOLD && leftValue  < MIN_BLACK_THRESHOLD) {
+    // 왼쪽 센서만 회색 → 약하게 좌회전
+    driveMotors(DIRECTION_FORWARD, power * SOFT_TURN_FACTOR / 100,
+                DIRECTION_FORWARD, power );
+  }
+  else if (rightValue > MAX_WHITE_THRESHOLD && rightValue < MIN_BLACK_THRESHOLD) {
+    // 오른쪽 센서만 회색 → 약하게 우회전
+    driveMotors(DIRECTION_FORWARD, power,
+                DIRECTION_FORWARD, power * SOFT_TURN_FACTOR / 100);
+  }
+  // 2) 검정 영역: 강한 보정 (sharp turn)
+  else if (leftValue  > MIN_BLACK_THRESHOLD) {
+    // 왼쪽 센서만 검정 → 좌회전
+    turnLeft(power);
+  }
+  else if (rightValue > MIN_BLACK_THRESHOLD) {
+    // 오른쪽 센서만 검정 → 우우회전
+    turnRight(power);
+  }
 }
 
 /**

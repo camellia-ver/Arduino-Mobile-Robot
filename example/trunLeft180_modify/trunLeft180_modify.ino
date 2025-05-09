@@ -146,7 +146,14 @@ void simpleLineTracing()
     while( analogRead(IR_SENSOR_LEFT_PIN) > MAX_WHITE_THRESHOLD )
       delay( 1 ); // 왼쪽이 흰색이 아닌 동안 계속 좌회전
 
-    moveForward( defaultPower ); // (180도 회전 이후의) 직진 시작
+/*
+// 회전 완료 후 정지
+    stopMotors();
+    isDriving = false;  // 주행 상태 해제하여 loop()에서 멈추도록 함
+    return;
+// 회전후 멈추고 싶은 경우
+*/
+    moveForward( defaultPower ); // (180도 회전 이후의) 직진 시작'
   }
   else if( v1 > MIN_BLACK_THRESHOLD )  // 왼쪽(IR1)만 검정
   {

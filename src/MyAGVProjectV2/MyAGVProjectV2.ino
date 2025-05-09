@@ -312,68 +312,107 @@ bool isIntersection() {
   return (leftValue > MIN_BLACK_THRESHOLD && rightValue > MIN_BLACK_THRESHOLD);
 }
 
+/**
+ * @brief 180° 전환을 수행하는 함수
+ * @param backOnStopLine true일 경우 정지선 뒤에서 후진 후 회전, 
+ *                        false일 경우 일반 후진 후 회전
+ * @details
+ * 1) backOnStopLine 모드: 정지선을 등지고 천천히 후진하여 완전히 벗어남  
+ *    일반 모드: 잠시 후진 후 정지  
+ * 2) 소프트 턴 모드로 90°씩 두 번 회전  
+ * 3) 회전 완료 후 전진 복귀  
+ */
 void turnAround180Degrees(bool backOnStopLine) {
+  // 회전 시 사용할 속도를 소프트 턴 계수로 조정
   int softPower = defaultPower * SOFT_TURN_FACTOR / 100;
 
   if (backOnStopLine) {
-      // 정지선 등지고 첫 후진
+      // 1. 정지선 등지고 후진
       driveMotors(DIRECTION_BACKWARD, softPower, DIRECTION_BACKWARD, softPower);
+      // 후진 중 라인이 완전히 사라질 때까지 대기
       while ((analogRead(IR_SENSOR_LEFT_PIN)  > MIN_BLACK_THRESHOLD) ||
-             (analogRead(IR_SENSOR_RIGHT_PIN) > MIN_BLACK_THRESHOLD)) delay(1);
-      delay(130);
+             (analogRead(IR_SENSOR_RIGHT_PIN) > MIN_BLACK_THRESHOLD)) {
+          delay(1);
+      }
+      delay(130);  // 충분히 벗어난 후 추가 대기
   } else {
-      // 일반 후진 후 회전 준비
+      // 1. 일반 후진
       driveMotors(DIRECTION_BACKWARD, softPower, DIRECTION_BACKWARD, softPower);
-      delay(150);
-      stopMotors();
-      delay(50);
+      delay(150);  // 후진 시간 확보
+      stopMotors();  // 후진 정지
+      delay(50);   // 안정 시간
   }
 
-  // 1단계 90° 회전
+  // 2. 첫 번째 90° 회전 (소프트 턴)
   driveMotors(DIRECTION_BACKWARD, softPower, DIRECTION_FORWARD, softPower);
-  while (analogRead(IR_SENSOR_LEFT_PIN) < MIN_BLACK_THRESHOLD) delay(1);
+  // 왼쪽 센서가 검은색 라인(바닥 검정) 감지될 때까지 회전
+  while (analogRead(IR_SENSOR_LEFT_PIN) < MIN_BLACK_THRESHOLD) {
+      delay(1);
+  }
+  delay(30);  // 회전 마무리 보정
+
+  // 3. 두 번째 90° 회전 (소프트 턴)
+  driveMotors(DIRECTION_BACKWARD, softPower, DIRECTION_FORWARD, softPower);
+  while (analogRead(IR_SENSOR_LEFT_PIN) < MIN_BLACK_THRESHOLD) {
+      delay(1);
+  }
   delay(30);
 
-  // 2단계 90° 회전
-  driveMotors(DIRECTION_BACKWARD, softPower, DIRECTION_FORWARD, softPower);
-  while (analogRead(IR_SENSOR_LEFT_PIN) < MIN_BLACK_THRESHOLD) delay(1);
-  delay(30);
-
-  // 회전 후 전진 복귀
+  // 4. 회전 완료 후 직진 복귀
   moveForward(defaultPower);
 }
 
+/**
+* @brief 왼쪽으로 90° 회전하는 함수
+* @details
+* 1) 초기 정지 및 위치 보정  
+* 2) 첫 번째 화이트 라인(바닥 흰색) 감지  
+* 3) 두 번째 블랙 라인(바닥 검정) 감지  
+* 4) 직진으로 빠져나온 후 최종 보정 회전 및 직진  
+*/
 void turnLeft90Degrees() {
+  // 1. 정지 및 짧은 후진으로 위치 조정
   stopMotors();
   delay(50);
-
-  // 초기 위치 보정 후
   driveMotors(DIRECTION_BACKWARD, 80, DIRECTION_BACKWARD, 80);
   delay(20);
   stopMotors();
   delay(50);
 
-  // 첫 번째 화이트 라인 감지
+  // 2. 첫 번째 화이트 라인 감지하며 좌회전
   turnLeft(100);
-  while (analogRead(IR_SENSOR_LEFT_PIN) < MAX_WHITE_THRESHOLD) delay(1);
+  while (analogRead(IR_SENSOR_LEFT_PIN) < MAX_WHITE_THRESHOLD) {
+      delay(1);
+  }
   delay(40);
 
-  // 두 번째 블랙 라인 감지
+  // 3. 두 번째 블랙 라인 감지하며 좌회전
   turnLeft(100);
-  while (analogRead(IR_SENSOR_LEFT_PIN) > MIN_BLACK_THRESHOLD) delay(1);
+  while (analogRead(IR_SENSOR_LEFT_PIN) > MIN_BLACK_THRESHOLD) {
+      delay(1);
+  }
   delay(40);
 
-  // 직진으로 마무리
+  // 4. 회전 완료 후 직진으로 빠져나오기
   moveForward(defaultPower);
   delay(90);
 
-  // 정위치 보정 턴
+  // 5. 최종 위치 보정을 위한 소량 회전 후 직진
   turnLeft(100);
   delay(250);
   moveForward(defaultPower);
 }
 
+/**
+* @brief 오른쪽으로 90° 회전하는 함수
+* @details
+* 1) 초기 정지 및 위치 보정  
+* 2) 첫 번째 화이트 라인 감지  
+* 3) 두 번째 블랙 라인 감지  
+* 4) 직진으로 빠져나온 후 최종 보정 회전 및 직진  
+*/
 void turnRight90Degrees() {
+  // 1. 정지 및 짧은 후진으로 위치 조정
   stopMotors();
   delay(50);
   driveMotors(DIRECTION_BACKWARD, 80, DIRECTION_BACKWARD, 80);
@@ -381,21 +420,25 @@ void turnRight90Degrees() {
   stopMotors();
   delay(50);
 
-  // 첫 번째 화이트 라인 감지
+  // 2. 첫 번째 화이트 라인 감지하며 우회전
   turnRight(100);
-  while (analogRead(IR_SENSOR_RIGHT_PIN) < MAX_WHITE_THRESHOLD) delay(1);
+  while (analogRead(IR_SENSOR_RIGHT_PIN) < MAX_WHITE_THRESHOLD) {
+      delay(1);
+  }
   delay(40);
 
-  // 두 번째 블랙 라인 감지
+  // 3. 두 번째 블랙 라인 감지하며 우회전
   turnRight(100);
-  while (analogRead(IR_SENSOR_RIGHT_PIN) > MIN_BLACK_THRESHOLD) delay(1);
+  while (analogRead(IR_SENSOR_RIGHT_PIN) > MIN_BLACK_THRESHOLD) {
+      delay(1);
+  }
   delay(40);
 
-  // 직진으로 마무리
+  // 4. 회전 완료 후 직진으로 빠져나오기
   moveForward(defaultPower);
   delay(90);
 
-  // 정위치 보정 턴
+  // 5. 최종 위치 보정을 위한 소량 회전 후 직진
   turnRight(100);
   delay(250);
   moveForward(defaultPower);
@@ -603,6 +646,45 @@ void updatePosition(Direction dir) {
 }
 
 /**
+ * @brief 교차로 도착 후 셀 중앙으로 위치 보정
+ * @details
+ * 1) 정지선(흑) 위에 멈춘 상태에서 후진하여 흰색 영역(라인) 밖으로 빠져나옴  
+ * 2) 천천히 전진하며 첫 번째 흑(정지선) 감지 시 정지 → 이 지점이 셀 중앙
+ * 3) 최종 정지
+ * @param speed 모터 속도 (0~255)
+ */
+void correctPositionAfterIntersection(int speed) {
+  // 1) 천천히 후진: 흑→백
+  driveMotors(DIRECTION_BACKWARD, speed/2, DIRECTION_BACKWARD, speed/2);
+  while (true) {
+    int lv = analogRead(IR_SENSOR_LEFT_PIN);
+    int rv = analogRead(IR_SENSOR_RIGHT_PIN);
+    // 둘 중 하나라도 흑(> MIN_BLACK_THRESHOLD)이면 아직 정지선 위
+    if (lv < MIN_BLACK_THRESHOLD && rv < MIN_BLACK_THRESHOLD) {
+      // 둘 다 흰색 영역(라인 바로 바깥) 감지 → 탈출 완료
+      break;
+    }
+    delay(1);
+  }
+  stopMotors();
+  delay(20);
+
+  // 2) 천천히 전진: 백→흑
+  driveMotors(DIRECTION_FORWARD, speed/2, DIRECTION_FORWARD, speed/2);
+  while (true) {
+    int lv = analogRead(IR_SENSOR_LEFT_PIN);
+    int rv = analogRead(IR_SENSOR_RIGHT_PIN);
+    // 둘 다 흑(> MIN_BLACK_THRESHOLD) 감지 시 중앙 도달
+    if (lv > MIN_BLACK_THRESHOLD && rv > MIN_BLACK_THRESHOLD) {
+      break;
+    }
+    delay(1);
+  }
+  stopMotors();
+  delay(20);
+}
+
+/**
  * @brief 한 칸(Cell) 만큼 이동
  * @param dir   이동 방향 (NORTH/EAST/SOUTH/WEST)
  */
@@ -614,165 +696,85 @@ void moveOneCell(Direction dir) {
         case SOUTH: /* 남쪽으로 회전 */ turnToSouth(); break;
         case WEST:  /* 서쪽으로 회전 */ turnToWest();  break;
     }
+
     // 2) 교차로 하나 전진
     while (!isIntersection()) {
         simpleLineTrace(defaultPower);
     }
     stopMotors();
+
+    // 3) 교차로 도착 → 위치 보정
+    correctPositionAfterIntersection(defaultPower);
+
     // 3) 위치 갱신
     updatePosition(dir);
 }
 
-bool isOne = false;
+/** 
+ * @brief 제자리에서 선 중앙 정렬: 한쪽에만 라인이 있을 때 제자리 회전(pivot)으로 보정
+ * @param power 회전할 때 사용할 모터 속도 (0~255)
+ */
+void alignToLine(int power) {
+    // 수정하기
+}
 
 /**
 * @brief 메인 루프: 상태 머신으로 AGV 동작 제어
 */
-// void loop() {
-
-//   switch (runState) {
-
-//       case STATE_IDLE:
-//           // RFID 카드 태깅 대기
-//           if (readCoordinatesFromRFID(coordAX, coordAY)) {
-//               // 태깅 확인음
-//               tone(BUZZER_PIN, 262); delay(100);
-//               tone(BUZZER_PIN, 330); delay(250);
-//               noTone(BUZZER_PIN);
-//               runState = STATE_MOVE_TO_A;
-//           }
-//           break;
-
-//       case STATE_MOVE_TO_A:
-//           // A 지점으로 이동
-//           navigateTo(coordAX, coordAY);
-//           stopMotors();
-//           runState = STATE_PICKUP;
-//           break;
-
-//       case STATE_PICKUP:
-//           // B 지점 좌표 재읽기
-//           if (readCoordinatesFromRFID(coordBX, coordBY)) {
-//               raiseLifter();
-//               playPickupTone();
-//               runState = STATE_MOVE_TO_B;
-//           } else {
-//               // UID 미등록 시 대기 상태 복귀
-//               runState = STATE_IDLE;
-//           }
-//           break;
-
-//       case STATE_MOVE_TO_B:
-//           // B 지점으로 이동
-//           navigateTo(coordBX, coordBY);
-//           stopMotors();
-//           runState = STATE_DROPOFF;
-//           break;
-
-//       case STATE_DROPOFF:
-//           // 물건 하강 및 알림음
-//           lowerLifter();
-//           playDropTone();
-//           runState = STATE_RETURN;
-//           break;
-
-//       case STATE_RETURN:
-//           // A 지점으로 복귀
-//           navigateTo(coordAX, coordAY);
-//           stopMotors();
-//           runState = STATE_IDLE;
-//           break;
-
-//       default:
-//           // 예기치 않은 상태는 초기화
-//           runState = STATE_IDLE;
-//           break;
-//   }
-//   delay(100);
-// }
-
 void loop() {
-  static uint8_t phase = 0;
-  static uint8_t dummyX, dummyY;
+  switch (runState) {
+      case STATE_IDLE:
+          // RFID 카드 태깅 대기
+          if (readCoordinatesFromRFID(coordAX, coordAY)) {
+              // 태깅 확인음
+              tone(BUZZER_PIN, 262); delay(100);
+              tone(BUZZER_PIN, 330); delay(250);
+              noTone(BUZZER_PIN);
 
-  switch (phase) {
+              alignToLine(defaultPower);
 
-    case 0:
-      // 0) 대기 상태: RFID 카드 태그 대기
-      if (readCoordinatesFromRFID(dummyX, dummyY)) {
-        // 태그 확인 음
-        tone(BUZZER_PIN, 1000); delay(100); noTone(BUZZER_PIN);
-        Serial.print(F("RFID detected at A: ("));
-        Serial.print(dummyX); Serial.print(F(", "));
-        Serial.print(dummyY); Serial.println(F(")"));
-        Serial.println(F("Starting test sequence..."));
-        delay(500);
-        phase++;
-      }
-      break;
-
-    case 1:
-      // 1) 간단한 라인트레이싱 → 교차로 감지 시 다음 단계
-      simpleLineTrace(defaultPower);
-      if (isIntersection()) {
-        stopMotors();
-        Serial.println(F("Phase 1: Intersection → Left 90°"));
-        delay(500);
-        phase++;
-      }
-      break;
-
-    case 2:
-      // 2) 90° 왼쪽 회전 테스트
-      turnLeft90Degrees();
-      Serial.println(F("Phase 2: turnLeft90Degrees() done"));
-      delay(1000);
-      phase++;
-      break;
-
-    case 3:
-      // 3) 라인트레이싱 → 교차로 감지 시 다음 단계
-      simpleLineTrace(defaultPower);
-      if (isIntersection()) {
-        stopMotors();
-        Serial.println(F("Phase 3: Intersection → Right 90°"));
-        delay(500);
-        phase++;
-      }
-      break;
-
-    case 4:
-      // 4) 90° 오른쪽 회전 테스트
-      turnRight90Degrees();
-      Serial.println(F("Phase 4: turnRight90Degrees() done"));
-      delay(1000);
-      phase++;
-      break;
-
-    case 5:
-      // 5) 라인트레이싱 → 교차로 감지 시 다음 단계
-      simpleLineTrace(defaultPower);
-      if (isIntersection()) {
-        stopMotors();
-        Serial.println(F("Phase 5: Intersection → 180° turn"));
-        delay(500);
-        phase++;
-      }
-      break;
-
-    case 6:
-      // 6) 180° 회전 테스트
-      turnAround180Degrees(false);
-      Serial.println(F("Phase 6: turnAround180Degrees() done"));
-      delay(1000);
-      phase++;
-      break;
-
-    default:
-      // 완료 후 대기 (필요하면 phase = 0; 으로 재시작)
-      stopMotors();
-      break;
+              runState = STATE_MOVE_TO_A;
+          }
+          break;
+      case STATE_MOVE_TO_A:
+          // A 지점으로 이동
+          navigateTo(coordAX, coordAY);
+          stopMotors();
+          runState = STATE_PICKUP;
+          break;
+      case STATE_PICKUP:
+          // B 지점 좌표 재읽기
+          if (readCoordinatesFromRFID(coordBX, coordBY)) {
+              raiseLifter();
+              playPickupTone();
+              runState = STATE_MOVE_TO_B;
+          } else {
+              // UID 미등록 시 대기 상태 복귀
+              runState = STATE_IDLE;
+          }
+          break;
+      case STATE_MOVE_TO_B:
+          // B 지점으로 이동
+          navigateTo(coordBX, coordBY);
+          stopMotors();
+          runState = STATE_DROPOFF;
+          break;
+      case STATE_DROPOFF:
+          // 물건 하강 및 알림음
+          lowerLifter();
+          playDropTone();
+          runState = STATE_RETURN;
+          break;
+      case STATE_RETURN:
+          // A 지점으로 복귀
+          navigateTo(coordAX, coordAY);
+          stopMotors();
+          runState = STATE_IDLE;
+          break;
+      default:
+          // 예기치 않은 상태는 초기화
+          runState = STATE_IDLE;
+          break;
   }
-
-  delay(10); // 루프 안정화
+  delay(100);
 }

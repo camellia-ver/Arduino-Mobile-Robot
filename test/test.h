@@ -115,11 +115,8 @@ void loop() {
             break;
 
         default:
-            // 테스트 완료: 무한 대기
+            // 테스트 완료: 대기
             Serial.println(F("테스트 완료"));
-            // while (true) {
-            //     // 아무 동작 없음
-            // }
     }
   
       // 5) 방금 읽은 카드를 HALT 처리 → 다음 카드 대기

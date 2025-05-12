@@ -697,9 +697,6 @@ void correctPositionAfterIntersection(int speed) {
   // 2) 천천히 전진: 백→흑
   driveMotors(DIRECTION_FORWARD, speed/2, DIRECTION_FORWARD, speed/2);
   while (true) {
-    // int lv = analogRead(IR_SENSOR_LEFT_PIN);
-    // int rv = analogRead(IR_SENSOR_RIGHT_PIN);
-
     int leftValue, rightValue;
     readLineSensors(leftValue, rightValue);
 
@@ -806,62 +803,110 @@ void alignToLine(int power) {
 }
 
 /**
-* @brief 메인 루프: 상태 머신으로 AGV 동작 제어
-*/
+ * @brief 메인 루프: RFID 태그 감지 → 테스트 수행 → 다음 태그 대기
+ */
 void loop() {
-  switch (runState) {
-      case STATE_IDLE:
-          // RFID 카드 태깅 대기
-          if (readCoordinatesFromRFID(coordAX, coordAY)) {
-              // 태깅 확인음
-              tone(BUZZER_PIN, 262); delay(100);
-              tone(BUZZER_PIN, 330); delay(250);
-              noTone(BUZZER_PIN);
+  uint8_t rx, ry;
+  int lv, rv;
 
-              alignToLine(defaultPower);
+  // 1) RFID 카드 태그 감지 대기
+  if (readCoordinatesFromRFID(rx, ry)) {
+    Serial.println(F(">> RFID 태그 감지: 테스트 시작"));
+    
+    // @brief RFID 인식 직후 부저 알림
+    playPickupTone();
+    delay(500);
 
-              runState = STATE_MOVE_TO_A;
-          }
-          break;
-      case STATE_MOVE_TO_A:
-          // A 지점으로 이동
-          navigateTo(coordAX, coordAY);
-          stopMotors();
-          runState = STATE_PICKUP;
-          break;
-      case STATE_PICKUP:
-          // B 지점 좌표 재읽기
-          if (readCoordinatesFromRFID(coordBX, coordBY)) {
-              raiseLifter();
-              playPickupTone();
-              runState = STATE_MOVE_TO_B;
-          } else {
-              // UID 미등록 시 대기 상태 복귀
-              runState = STATE_IDLE;
-          }
-          break;
-      case STATE_MOVE_TO_B:
-          // B 지점으로 이동
-          navigateTo(coordBX, coordBY);
-          stopMotors();
-          runState = STATE_DROPOFF;
-          break;
-      case STATE_DROPOFF:
-          // 물건 하강 및 알림음
-          lowerLifter();
-          playDropTone();
-          runState = STATE_RETURN;
-          break;
-      case STATE_RETURN:
-          // A 지점으로 복귀
-          navigateTo(coordAX, coordAY);
-          stopMotors();
-          runState = STATE_IDLE;
-          break;
-      default:
-          // 예기치 않은 상태는 초기화
-          runState = STATE_IDLE;
-          break;
+    // 중앙 정렬
+    readLineSensors(lv, rv);
+    Serial.print(F("[alignToLine] 시작 전 센서값: L=")); Serial.print(lv);
+    Serial.print(F(" R=")); Serial.println(rv);
+    alignToLine(defaultPower);
+    readLineSensors(lv, rv);
+    Serial.print(F("[alignToLine] 완료 후 센서값: L=")); Serial.print(lv);
+    Serial.print(F(" R=")); Serial.println(rv);
+    delay(500);
+
+    // 첫 번째 교차점까지 라인트레이싱
+    Serial.println(F(">> 첫 교차점까지 라인트레이싱 시작"));
+    while (!isIntersection()) {
+      proportionalLineTrace(defaultPower);
+    }
+    stopMotors();
+    readLineSensors(lv, rv);
+    Serial.print(F("[proportionalLineTrace] 교차점 도달 전 센서값: L=")); Serial.print(lv);
+    Serial.print(F(" R=")); Serial.println(rv);
+    Serial.println(F(">> 첫 교차점 도달"));
+    delay(500);
+
+    // 교차로 위치 보정
+    Serial.println(F(">> correctPositionAfterIntersection 시작"));
+    correctPositionAfterIntersection(defaultPower);
+    Serial.println(F(">> correctPositionAfterIntersection 완료"));
+    delay(500);
+
+    // 90° 좌회전 테스트
+    Serial.println(F(">> 90° 좌회전 테스트 시작"));
+    turnLeft90Degrees();
+    Serial.println(F(">> 90° 좌회전 완료"));
+    delay(1000);
+
+    // 두 번째 교차점까지 라인트레이싱
+    Serial.println(F(">> 두 번째 교차점까지 라인트레이싱 시작"));
+    while (!isIntersection()) {
+      proportionalLineTrace(defaultPower);
+    }
+    stopMotors();
+    Serial.println(F(">> 두 번째 교차점 도달"));
+    delay(500);
+
+    // 교차로 위치 보정
+    Serial.println(F(">> correctPositionAfterIntersection (2) 시작"));
+    correctPositionAfterIntersection(defaultPower);
+    Serial.println(F(">> correctPositionAfterIntersection (2) 완료"));
+    delay(500);
+
+    // 180° 회전 테스트
+    Serial.println(F(">> 180° 회전 테스트 시작"));
+    turnAround180Degrees(false);
+    Serial.println(F(">> 180° 회전 완료"));
+    delay(1000);
+
+    // 세 번째 교차점까지 라인트레이싱
+    Serial.println(F(">> 세 번째 교차점까지 라인트레이싱 시작"));
+    while (!isIntersection()) {
+      proportionalLineTrace(defaultPower);
+    }
+    stopMotors();
+    Serial.println(F(">> 세 번째 교차점 도달"));
+    delay(500);
+
+    // 교차로 위치 보정
+    Serial.println(F(">> correctPositionAfterIntersection (3) 시작"));
+    correctPositionAfterIntersection(defaultPower);
+    Serial.println(F(">> correctPositionAfterIntersection (3) 완료"));
+    delay(500);
+
+    // 90° 우회전 테스트
+    Serial.println(F(">> 90° 우회전 테스트 시작"));
+    turnRight90Degrees();
+    Serial.println(F(">> 90° 우회전 완료"));
+    delay(1000);
+
+    // 테스트 완료
+    Serial.println(F(">> 테스트 완료"));
+    stopMotors();
+    delay(500);
+
+    // 2) RFID 카드 제거 대기
+    Serial.println(F(">> 카드 제거 후 다음 태그 대기"));
+    while (rfidReader.PICC_IsNewCardPresent()) {
+      delay(100);
+    }
+    rfidReader.PICC_HaltA();
+    rfidReader.PCD_StopCrypto1();
+    Serial.println(F(">> 카드 제거 확인, 대기 상태로 복귀"));
   }
-  delay(100);
+
+  // loop()가 끝나면 자동으로 다시 RFID 대기 상태로 진입
 }

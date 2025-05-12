@@ -181,6 +181,20 @@ void stopMotors() {
   analogWrite(MOTOR_RIGHT_PWM_PIN, 0);
 }
 
+// 에러(미등록) 알림용 톤
+const int errorNotes[]  = {200, 150};    // 낮은 주파수 두 음
+const int errorTimes[]  = {200, 200};    // 각 음 길이 200ms
+const int errorLen      = 2;
+freadCoordinatesFromRFID
+
+void playErrorTone() {
+  for (int i = 0; i < errorLen; i++) {
+    tone(BUZZER_PIN, errorNotes[i]);
+    delay(errorTimes[i]);
+  }
+  noTone(BUZZER_PIN);
+}
+
 /**
 * @brief 부저로 알림음 재생 (픽업/드롭 공통)
 * @param seq     주파수 배열
@@ -250,6 +264,7 @@ void readLineSensors(int &leftValue, int &rightValue) {
   rightValue = analogRead(IR_SENSOR_RIGHT_PIN);
 }
 
+int16_t centerValue;
 // ---------------------------------------------
 // 비례제어 라인트레이싱 함수
 // ---------------------------------------------
@@ -257,37 +272,17 @@ void proportionalLineTrace(int baseSpeed) {
   int leftValue, rightValue;
   readLineSensors(leftValue, rightValue);
 
-  // 1) 에러(error) 계산: 오른쪽 검정도 - 왼쪽 검정도
-  int16_t error = rightValue - leftValue;
-
-  // 2) 중심 보정값(centerValue)이 필요하면 빼주고, 이 예제에선 0으로 가정
-  //    (센서가 완벽히 중앙에 있을 때 error==0이 되면 됩니다)
-  // int16_t centerValue = 0;
-  // error -= centerValue;
-
-  // 3) 비례 이득(Kp) 조절: 값을 나눠서 부드럽게
-  const int16_t Kp_divisor = 8;    
-  int16_t turnSpeed = error / Kp_divisor;
-
-  // 4) 좌/우 모터 속도 계산
-  int16_t leftSpeed  = baseSpeed + turnSpeed;
+  int16_t turnSpeed = ((rightValue - leftValue) - centerValue) / 8;
+  int16_t leftSpeed = baseSpeed + turnSpeed;
   int16_t rightSpeed = baseSpeed - turnSpeed;
 
-  // 5) 속도 한계 걸기
-  leftSpeed  = constrain(leftSpeed,  -255, 255);
-  rightSpeed = constrain(rightSpeed, -255, 255);
-
-  // 6) 모터 방향 세팅
-  //    (DIRECTION_FORWARD, DIRECTION_BACKWARD 은 0/1 로 정의되어 있다고 가정)
   digitalWrite(MOTOR_LEFT_DIR_PIN,
-               (leftSpeed  >= 0) ? DIRECTION_BACKWARD : DIRECTION_FORWARD);
-  // 오른쪽 모터 방향 신호가 반전되어 있다면 아래처럼 반대로 설정
+               (leftSpeed  > 0) ? DIRECTION_BACKWARD : DIRECTION_FORWARD);
   digitalWrite(MOTOR_RIGHT_DIR_PIN,
-               (rightSpeed >= 0) ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
+               (rightSpeed > 0) ? DIRECTION_FORWARD : DIRECTION_BACKWARD);
 
-  // 7) PWM 출력
-  analogWrite(MOTOR_LEFT_PWM_PIN,  abs(leftSpeed));
-  analogWrite(MOTOR_RIGHT_PWM_PIN, abs(rightSpeed));
+  analogWrite(MOTOR_LEFT_PWM_PIN,  round(abs(leftSpeed)));
+  analogWrite(MOTOR_RIGHT_PWM_PIN, round(abs(rightSpeed)));
 }
 
 /**
@@ -539,6 +534,8 @@ bool readCoordinatesFromRFID(uint8_t &x, uint8_t &y) {
   } else {
       Serial.print(F("알 수 없는 UID: "));
       Serial.println(uidStr);
+      playErrorTone();             // 에러음 재생
+      delay(200);
       return false;
   }
 }
@@ -826,6 +823,10 @@ void loop() {
     Serial.print(F("[alignToLine] 완료 후 센서값: L=")); Serial.print(lv);
     Serial.print(F(" R=")); Serial.println(rv);
     delay(500);
+
+    int rightValue,leftValue;
+    readLineSensors(leftValue,rightValue);
+    centerValue = rightValue - leftValue;
 
     // 첫 번째 교차점까지 라인트레이싱
     Serial.println(F(">> 첫 교차점까지 라인트레이싱 시작"));

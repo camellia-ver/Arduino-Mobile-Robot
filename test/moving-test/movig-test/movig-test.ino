@@ -185,7 +185,6 @@ void stopMotors() {
 const int errorNotes[]  = {200, 150};    // 낮은 주파수 두 음
 const int errorTimes[]  = {200, 200};    // 각 음 길이 200ms
 const int errorLen      = 2;
-freadCoordinatesFromRFID
 
 void playErrorTone() {
   for (int i = 0; i < errorLen; i++) {

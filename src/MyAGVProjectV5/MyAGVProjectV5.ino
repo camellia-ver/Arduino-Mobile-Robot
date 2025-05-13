@@ -647,59 +647,10 @@ void updatePosition(Direction dir) {
 }
 
 /**
- * @brief 교차로 도착 후 셀 중앙으로 위치 보정
- * @details
- * 1) 정지선(흑) 위에 멈춘 상태에서 후진하여 흰색 영역(라인) 밖으로 빠져나옴  
- * 2) 천천히 전진하며 첫 번째 흑(정지선) 감지 시 정지 → 이 지점이 셀 중앙
- * 3) 최종 정지
- * @param speed 모터 속도 (0~255)
- */
-void correctPositionAfterIntersection(int speed) {
-  // 1) 천천히 후진: 흑→백
-  driveMotors(DIRECTION_BACKWARD, speed/2, DIRECTION_BACKWARD, speed/2);
-  while (true) {
-    // int lv = analogRead(IR_SENSOR_LEFT_PIN);
-    // int rv = analogRead(IR_SENSOR_RIGHT_PIN);
-    int leftValue, rightValue;
-    readLineSensors(leftValue, rightValue);
-
-    // 둘 중 하나라도 흑(> MIN_BLACK_THRESHOLD)이면 아직 정지선 위
-    if (leftValue < MIN_BLACK_THRESHOLD && rightValue < MIN_BLACK_THRESHOLD) {
-      // 둘 다 흰색 영역(라인 바로 바깥) 감지 → 탈출 완료
-      break;
-    }
-    delay(1);
-  }
-  stopMotors();
-  delay(20);
-
-  alignToLine(speed / 2);
-
-  // 2) 천천히 전진: 백→흑
-  driveMotors(DIRECTION_FORWARD, speed/2, DIRECTION_FORWARD, speed/2);
-  while (true) {
-    // int lv = analogRead(IR_SENSOR_LEFT_PIN);
-    // int rv = analogRead(IR_SENSOR_RIGHT_PIN);
-
-    int leftValue, rightValue;
-    readLineSensors(leftValue, rightValue);
-
-    // 둘 다 흑(> MIN_BLACK_THRESHOLD) 감지 시 중앙 도달
-    if (leftValue > MIN_BLACK_THRESHOLD && rightValue > MIN_BLACK_THRESHOLD) {
-      break;
-    }
-    delay(1);
-  }
-  stopMotors();
-  delay(20);
-}
-
-/**
  * @brief 한 칸(Cell) 만큼 이동 (회전 후 재정렬 추가)
  * @details
  * 1) 바라보는 방향으로 회전  
  * 2) 회전 직후 짧게 전진해서 센서를 라인 위로 올림  
- * 3) 라인 중앙 정렬 (alignToLine)  
  * 4) 현재 교차로 벗어나기  
  * 5) 다음 교차로까지 라인트레이싱  
  * 6) 교차로 도착 후 위치 보정  
@@ -720,9 +671,6 @@ void moveOneCell(Direction dir) {
     delay(50);
     stopMotors();
 
-    // 3) 라인 중앙 정렬: 센서가 라인 위에 완전히 올라오도록 보정
-    alignToLine(defaultPower / 2);
-
     // 4) 현재 교차로(정지선)에서 벗어나기
     while (isIntersection()) {
         proportionalLineTrace(defaultPower);
@@ -734,56 +682,8 @@ void moveOneCell(Direction dir) {
     }
     stopMotors();
 
-    // 6) 교차로 도착 → 위치 보정
-    correctPositionAfterIntersection(defaultPower);
-
     // 7) currentX/Y 갱신
     updatePosition(dir);
-}
-
-/**
- * @brief 제자리에서 선 중앙 정렬: 한쪽에만 라인이 있을 때 제자리 회전(pivot)으로 보정
- * @param power 회전할 때 사용할 모터 속도 (0~255)
- */
-void alignToLine(int power) {
-  int leftValue, rightValue;
-
-  // 초기 센서값 읽기
-  readLineSensors(leftValue, rightValue);
-
-  while (true) {
-    // 센서값 갱신
-    readLineSensors(leftValue, rightValue);
-
-    // 1) 양쪽 다 흰색이면 라인 중앙에 위치했다고 판단 → 종료
-    if (leftValue < MAX_WHITE_THRESHOLD && rightValue < MAX_WHITE_THRESHOLD) {
-      break;
-    }
-
-    // 2) 한쪽만 검정이면 반대 방향으로 피벗 회전
-    if (leftValue > MIN_BLACK_THRESHOLD) {
-      turnRight(power);
-      continue;
-    }
-    if (rightValue > MIN_BLACK_THRESHOLD) {
-      turnLeft(power);
-      continue;
-    }
-
-    // 3) 회색(Gray) 영역: 부드러운 보정 (soft turn)
-    if (leftValue > MAX_WHITE_THRESHOLD) {
-      driveMotors(DIRECTION_FORWARD, power,
-                  DIRECTION_FORWARD, power * SOFT_TURN_FACTOR / 100);
-    } 
-    else if (rightValue > MAX_WHITE_THRESHOLD) {
-      driveMotors(DIRECTION_FORWARD, power * SOFT_TURN_FACTOR / 100,
-                  DIRECTION_FORWARD, power);
-    }
-    // (양쪽 다 검정인 경우는 특별히 처리 없이 루프 재진행)
-  }
-
-  // 보정 완료 후 모터 정지
-  stopMotors();
 }
 
 /**
@@ -798,8 +698,6 @@ void loop() {
               tone(BUZZER_PIN, 262); delay(100);
               tone(BUZZER_PIN, 330); delay(250);
               noTone(BUZZER_PIN);
-
-              alignToLine(defaultPower);
 
               runState = STATE_MOVE_TO_A;
           }
